@@ -16,31 +16,32 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SubPilot — AI Subscription Tracker",
+  title: "SubTrack AI — Outsmart Your Subscriptions",
   description:
-    "Track every subscription, catch price hikes, find running offers, and save money with AI insights. Scan receipts, sync email, and never miss a renewal.",
+    "Track every subscription, catch price hikes, and earn rewards with Savvy AI. Scan receipts, sync your inbox, complete challenges, and unlock coupon scratch cards.",
   keywords: [
     "subscription tracker",
     "save money",
     "renewal reminders",
     "AI finance",
     "cancel subscriptions",
+    "gamification",
   ],
-  authors: [{ name: "SubPilot" }],
+  authors: [{ name: "SubTrack AI" }],
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "SubPilot",
+    title: "SubTrack AI",
   },
   icons: {
     icon: "/icons/icon-192.svg",
     apple: "/icons/icon-192.svg",
   },
   openGraph: {
-    title: "SubPilot — AI Subscription Tracker",
+    title: "SubTrack AI — Outsmart Your Subscriptions",
     description:
-      "Track every subscription, catch price hikes, find running offers, and save money with AI.",
+      "Track subscriptions, earn Savvy Points, unlock coupon scratch cards. Powered by Savvy AI.",
     type: "website",
   },
 };

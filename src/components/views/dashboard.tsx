@@ -2,16 +2,30 @@
 
 import { useMemo } from "react";
 import { motion } from "framer-motion";
-import { TrendingDown, CalendarClock, Wallet, AlertTriangle, ChevronRight } from "lucide-react";
+import {
+  TrendingDown, CalendarClock, Wallet, AlertTriangle, ChevronRight,
+  Flame, Trophy, Target, Sparkles,
+} from "@/components/icons";
 import { useSubscriptions, useDeleteSubscription, type Subscription } from "@/hooks/use-subscriptions";
 import { useUI } from "@/hooks/use-ui";
+import { useProgress } from "@/hooks/use-gamification";
 import { SubscriptionCard } from "@/components/subscription-card";
+import { SavvyMascot } from "@/components/savvy-mascot";
 import { formatCurrency, yearlyEquivalent, monthlyEquivalent, daysUntil, relativeRenewal } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
+const SAVVY_TIPS = [
+  "I noticed 3 streaming subs — consider sharing a family plan to save up to 40%.",
+  "Your Adobe renewal is in 3 weeks. Cancel now to avoid the next $59.99 charge.",
+  "You're paying yearly for Prime — that's $12/mo equivalent. Smart choice!",
+  "ChatGPT Plus renews soon. Want me to find a student or annual discount?",
+  "Three of your apps overlap on music. Cutting one saves ~$120/yr.",
+];
+
 export function DashboardView() {
   const { data: subs, isLoading } = useSubscriptions();
+  const { data: progress } = useProgress();
   const deleteSub = useDeleteSubscription();
   const { setTab, setQuickAddOpen } = useUI();
 
@@ -26,6 +40,11 @@ export function DashboardView() {
     return { monthly, yearly, active: active.length, upcoming };
   }, [subs]);
 
+  const tipOfTheDay = useMemo(() => {
+    const idx = new Date().getDate() % SAVVY_TIPS.length;
+    return SAVVY_TIPS[idx];
+  }, []);
+
   if (isLoading) {
     return (
       <div className="space-y-4">
@@ -38,23 +57,56 @@ export function DashboardView() {
 
   if (!subs || subs.length === 0) {
     return (
-      <div className="text-center py-16">
-        <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
-          <Wallet className="h-8 w-8 text-primary" />
-        </div>
-        <h2 className="font-semibold text-lg">No subscriptions yet</h2>
+      <div className="text-center py-12">
+        <SavvyMascot size={88} variant="happy" className="mx-auto mb-3" />
+        <h2 className="font-semibold text-lg">Let's get tracking!</h2>
         <p className="text-sm text-muted-foreground mt-1 max-w-xs mx-auto">
-          Add your first subscription with AI — type, scan a receipt, or sync your email.
+          Add your first subscription and Savvy will start finding savings.
+          You'll earn <span className="font-semibold text-primary">10 points</span> instantly.
         </p>
         <Button className="mt-5" onClick={() => setQuickAddOpen(true)}>
-          Add subscription
+          <Sparkles className="h-4 w-4 mr-1" /> Add your first subscription
         </Button>
       </div>
     );
   }
 
+  const savingsPct = progress
+    ? Math.min(100, Math.round((progress.totalSaved / progress.savingsGoal) * 100))
+    : 0;
+
   return (
     <div className="space-y-4">
+      {/* Gamification header strip */}
+      {progress && (
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="glass rounded-2xl p-3 flex items-center gap-3"
+        >
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-primary/10">
+            <Trophy className="h-4 w-4 text-primary" />
+            <span className="text-sm font-bold">{progress.points}</span>
+            <span className="text-[10px] text-muted-foreground">pts</span>
+          </div>
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-amber-500/10">
+            <Flame className="h-4 w-4 text-amber-500" />
+            <span className="text-sm font-bold">{progress.streak}</span>
+            <span className="text-[10px] text-muted-foreground">day</span>
+          </div>
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-chart-4/10">
+            <span className="text-base">{progress.level.icon}</span>
+            <span className="text-xs font-semibold">{progress.level.title}</span>
+          </div>
+          <button
+            onClick={() => setTab("rewards")}
+            className="ml-auto text-xs text-primary font-medium flex items-center gap-0.5"
+          >
+            Rewards <ChevronRight className="h-3 w-3" />
+          </button>
+        </motion.div>
+      )}
+
       {/* Hero spend card */}
       <motion.div
         initial={{ opacity: 0, scale: 0.97 }}
@@ -80,9 +132,64 @@ export function DashboardView() {
               <p className="text-[11px] text-primary-foreground/70">Active</p>
               <p className="text-sm font-semibold">{stats.active} subs</p>
             </div>
+            <div className="h-8 w-px bg-white/20" />
+            <div>
+              <p className="text-[11px] text-primary-foreground/70">Saved</p>
+              <p className="text-sm font-semibold">{formatCurrency(progress?.totalSaved || 0)}</p>
+            </div>
           </div>
         </div>
       </motion.div>
+
+      {/* Savvy tip of the day */}
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="glass rounded-2xl p-4 flex items-start gap-3"
+      >
+        <SavvyMascot size={44} variant="wink" className="shrink-0" />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 mb-0.5">
+            <span className="text-xs font-bold text-primary">Savvy says</span>
+            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium">AI TIP</span>
+          </div>
+          <p className="text-sm leading-relaxed">{tipOfTheDay}</p>
+          <button
+            onClick={() => setTab("insights")}
+            className="text-xs text-primary font-medium mt-1.5 flex items-center gap-0.5"
+          >
+            See full analysis <ChevronRight className="h-3 w-3" />
+          </button>
+        </div>
+      </motion.div>
+
+      {/* Savings goal progress */}
+      {progress && progress.totalSaved > 0 && (
+        <div className="glass rounded-2xl p-4">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-semibold flex items-center gap-1.5">
+              <Target className="h-4 w-4 text-primary" />
+              Savings goal
+            </h3>
+            <span className="text-xs text-muted-foreground">
+              {formatCurrency(progress.totalSaved)} / {formatCurrency(progress.savingsGoal)}
+            </span>
+          </div>
+          <div className="h-2.5 rounded-full bg-muted overflow-hidden">
+            <motion.div
+              initial={{ width: 0 }}
+              animate={{ width: `${savingsPct}%` }}
+              transition={{ duration: 0.8, ease: "easeOut" }}
+              className="h-full rounded-full bg-gradient-to-r from-primary to-amber-400"
+            />
+          </div>
+          <p className="text-[11px] text-muted-foreground mt-1.5">
+            {savingsPct >= 100
+              ? "🎉 Goal smashed! You're a savings legend."
+              : `${100 - savingsPct}% to go — cancel one more sub to push further.`}
+          </p>
+        </div>
+      )}
 
       {/* Quick stat tiles */}
       <div className="grid grid-cols-2 gap-3">
@@ -123,14 +230,11 @@ export function DashboardView() {
             const urgent = days <= 3;
             return (
               <div key={s.id} className={urgent ? "ring-1 ring-amber-500/40 rounded-2xl" : ""}>
-                <SubscriptionCard
-                  sub={s}
-                  onDelete={(id) => deleteSub.mutate(id)}
-                />
+                <SubscriptionCard sub={s} onDelete={(id) => deleteSub.mutate(id)} />
                 {urgent && (
                   <div className="px-3 pb-1 -mt-1 flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-400">
                     <AlertTriangle className="h-3 w-3" />
-                    Renews soon — consider cancelling
+                    Renews soon — cancel to earn <span className="font-semibold">+50 points</span>
                   </div>
                 )}
               </div>
@@ -146,26 +250,14 @@ export function DashboardView() {
 }
 
 function StatTile({
-  icon: Icon,
-  label,
-  value,
-  sub,
-  accent,
-  onClick,
+  icon: Icon, label, value, sub, accent, onClick,
 }: {
-  icon: typeof Wallet;
-  label: string;
-  value: string;
-  sub: string;
-  accent?: boolean;
-  onClick?: () => void;
+  icon: typeof Wallet; label: string; value: string; sub: string; accent?: boolean; onClick?: () => void;
 }) {
   return (
     <button
       onClick={onClick}
-      className={`glass rounded-2xl p-4 text-left active:scale-[0.98] transition ${
-        accent ? "ring-1 ring-primary/30" : ""
-      }`}
+      className={`glass rounded-2xl p-4 text-left active:scale-[0.98] transition ${accent ? "ring-1 ring-primary/30" : ""}`}
     >
       <Icon className={`h-5 w-5 mb-2 ${accent ? "text-primary" : "text-muted-foreground"}`} />
       <p className="text-[11px] text-muted-foreground uppercase tracking-wide">{label}</p>
@@ -185,9 +277,7 @@ function CategoryBreakdown({ subs }: { subs: Subscription[] }) {
     }
     return [...map.entries()].sort((a, b) => b[1] - a[1]);
   }, [subs]);
-
   const total = cats.reduce((sum, [, v]) => sum + v, 0) || 1;
-
   return (
     <div className="glass rounded-2xl p-4">
       <h2 className="font-semibold text-sm mb-3">Spending by category</h2>
@@ -198,9 +288,7 @@ function CategoryBreakdown({ subs }: { subs: Subscription[] }) {
             <div key={cat}>
               <div className="flex items-center justify-between text-xs mb-1">
                 <span className="font-medium">{cat}</span>
-                <span className="text-muted-foreground">
-                  {formatCurrency(val)} · {pct}%
-                </span>
+                <span className="text-muted-foreground">{formatCurrency(val)} · {pct}%</span>
               </div>
               <div className="h-2 rounded-full bg-muted overflow-hidden">
                 <motion.div

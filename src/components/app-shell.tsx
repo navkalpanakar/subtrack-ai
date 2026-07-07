@@ -1,14 +1,14 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { Home, ListChecks, Lightbulb, Tag, Plus, LogOut, Moon, Sun } from "lucide-react";
+import { Home, ListChecks, Lightbulb, Gift, Plus, LogOut, Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useAuth } from "@/hooks/use-auth";
 import { useUI, type Tab } from "@/hooks/use-ui";
 import { DashboardView } from "./views/dashboard";
 import { SubscriptionsView } from "./views/subscriptions";
 import { InsightsView } from "./views/insights";
-import { OffersView } from "./views/offers";
+import { RewardsView } from "./views/rewards";
 import { QuickAddSheet } from "./quick-add-sheet";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -17,7 +17,7 @@ const TABS: { id: Tab; label: string; icon: typeof Home }[] = [
   { id: "home", label: "Home", icon: Home },
   { id: "subs", label: "Subs", icon: ListChecks },
   { id: "insights", label: "AI", icon: Lightbulb },
-  { id: "offers", label: "Offers", icon: Tag },
+  { id: "rewards", label: "Rewards", icon: Gift },
 ];
 
 export function AppShell() {
@@ -34,7 +34,7 @@ export function AppShell() {
             <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center">
               <span className="text-primary-foreground font-bold text-xs">S</span>
             </div>
-            <span className="font-semibold tracking-tight">SubPilot</span>
+            <span className="font-semibold tracking-tight">SubTrack <span className="text-primary">AI</span></span>
           </div>
           <div className="flex items-center gap-1">
             <Button
@@ -80,7 +80,7 @@ export function AppShell() {
             {tab === "home" && <DashboardView />}
             {tab === "subs" && <SubscriptionsView />}
             {tab === "insights" && <InsightsView />}
-            {tab === "offers" && <OffersView />}
+            {tab === "rewards" && <RewardsView />}
           </motion.div>
         </AnimatePresence>
       </main>

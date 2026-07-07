@@ -2,23 +2,16 @@
 
 import { motion } from "framer-motion";
 import {
-  Lightbulb,
-  TrendingDown,
-  AlertTriangle,
-  Sparkles,
-  Layers,
-  RefreshCw,
-  type LucideIcon,
-} from "lucide-react";
+  Lightbulb, TrendingDown, AlertTriangle, Sparkles, Layers, RefreshCw, ChevronRight, type LucideIcon,
+} from "@/components/icons";
 import { useInsights, useSubscriptions, type Insight } from "@/hooks/use-subscriptions";
+import { useProgress } from "@/hooks/use-gamification";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SavvyMascot } from "@/components/savvy-mascot";
 import { formatCurrency, monthlyEquivalent } from "@/lib/format";
 
-const TYPE_META: Record<
-  Insight["type"],
-  { icon: LucideIcon; color: string; bg: string; label: string }
-> = {
+const TYPE_META: Record<Insight["type"], { icon: LucideIcon; color: string; bg: string; label: string }> = {
   saving: { icon: TrendingDown, color: "text-primary", bg: "bg-primary/10", label: "Savings" },
   alert: { icon: AlertTriangle, color: "text-amber-500", bg: "bg-amber-500/10", label: "Alert" },
   tip: { icon: Sparkles, color: "text-chart-4", bg: "bg-chart-4/10", label: "Tip" },
@@ -28,11 +21,9 @@ const TYPE_META: Record<
 export function InsightsView() {
   const { data: insights, isLoading, refetch, isFetching } = useInsights();
   const { data: subs } = useSubscriptions();
+  const { data: progress } = useProgress();
 
-  const totalSavings = (insights || []).reduce(
-    (sum, i) => sum + (i.potentialSaving || 0),
-    0
-  );
+  const totalSavings = (insights || []).reduce((sum, i) => sum + (i.potentialSaving || 0), 0);
   const totalMonthly = (subs || [])
     .filter((s) => s.status === "active")
     .reduce((sum, s) => sum + monthlyEquivalent(Number(s.amount), s.billingCycle), 0);
@@ -43,22 +34,38 @@ export function InsightsView() {
         <div>
           <h1 className="font-bold text-xl tracking-tight flex items-center gap-2">
             <Lightbulb className="h-5 w-5 text-primary" />
-            AI Insights
+            Savvy Insights
           </h1>
-          <p className="text-xs text-muted-foreground">
-            Personalized ways to spend less
-          </p>
+          <p className="text-xs text-muted-foreground">AI analysis of your subscriptions</p>
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-9 w-9"
-          onClick={() => refetch()}
-          disabled={isFetching}
-        >
+        <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => refetch()} disabled={isFetching}>
           <RefreshCw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
         </Button>
       </div>
+
+      {/* Savvy intro card */}
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="glass rounded-2xl p-4 flex items-start gap-3"
+      >
+        <SavvyMascot size={48} variant="happy" className="shrink-0" />
+        <div>
+          <p className="text-sm leading-relaxed">
+            <span className="font-bold text-primary">Hi, I'm Savvy.</span>{" "}
+            {isLoading
+              ? "Analyzing your subscriptions…"
+              : insights && insights.length > 0
+              ? "Here's what I found — tap any insight to act on it."
+              : "Add a few subscriptions and I'll find personalized savings."}
+          </p>
+          {progress && (
+            <p className="text-[11px] text-muted-foreground mt-1">
+              You've earned {progress.points} points exploring insights. Keep going!
+            </p>
+          )}
+        </div>
+      </motion.div>
 
       {/* Savings opportunity banner */}
       <motion.div
@@ -67,14 +74,10 @@ export function InsightsView() {
         className="rounded-2xl bg-gradient-to-br from-primary/15 to-primary/5 border border-primary/20 p-4"
       >
         <p className="text-xs text-muted-foreground">Potential monthly savings</p>
-        <p className="text-3xl font-bold text-primary mt-0.5">
-          {formatCurrency(totalSavings)}
-        </p>
+        <p className="text-3xl font-bold text-primary mt-0.5">{formatCurrency(totalSavings)}</p>
         <p className="text-xs text-muted-foreground mt-1">
           {totalMonthly > 0
-            ? `That's ${Math.round((totalSavings / totalMonthly) * 100)}% of your ${formatCurrency(
-                totalMonthly
-              )}/mo spend`
+            ? `That's ${Math.round((totalSavings / totalMonthly) * 100)}% of your ${formatCurrency(totalMonthly)}/mo spend`
             : "Add subscriptions to see personalized savings"}
         </p>
       </motion.div>
@@ -82,16 +85,12 @@ export function InsightsView() {
       {/* Insights list */}
       {isLoading ? (
         <div className="space-y-3">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-24 rounded-2xl" />
-          ))}
+          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-2xl" />)}
         </div>
       ) : !insights || insights.length === 0 ? (
         <div className="text-center py-12">
-          <Lightbulb className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
-          <p className="text-sm text-muted-foreground">
-            No insights yet. Add a few subscriptions to unlock AI savings tips.
-          </p>
+          <SavvyMascot size={72} variant="idle" className="mx-auto mb-3 opacity-60" />
+          <p className="text-sm text-muted-foreground">No insights yet. Add subscriptions to unlock AI savings tips.</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -112,22 +111,16 @@ export function InsightsView() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className={`text-[10px] font-semibold uppercase tracking-wide ${meta.color}`}>
-                        {meta.label}
-                      </span>
+                      <span className={`text-[10px] font-semibold uppercase tracking-wide ${meta.color}`}>{meta.label}</span>
                       {insight.potentialSaving ? (
-                        <span className="text-[10px] font-bold text-primary">
-                          {formatCurrency(insight.potentialSaving)}/mo
-                        </span>
+                        <span className="text-[10px] font-bold text-primary">{formatCurrency(insight.potentialSaving)}/mo</span>
                       ) : null}
                     </div>
                     <h3 className="font-semibold text-sm">{insight.title}</h3>
-                    <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                      {insight.detail}
-                    </p>
+                    <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{insight.detail}</p>
                     {insight.provider && (
                       <p className="text-[11px] text-muted-foreground mt-2">
-                        Related to <span className="font-medium text-foreground">{insight.provider}</span>
+                        About <span className="font-medium text-foreground">{insight.provider}</span>
                       </p>
                     )}
                   </div>
@@ -139,8 +132,7 @@ export function InsightsView() {
       )}
 
       <p className="text-[11px] text-muted-foreground text-center px-4">
-        Insights are generated by AI from your subscription data. Always verify
-        before cancelling.
+        Insights are generated by Savvy AI from your subscription data. Always verify before cancelling.
       </p>
     </div>
   );

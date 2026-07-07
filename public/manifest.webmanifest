@@ -1,7 +1,7 @@
 {
-  "name": "SubPilot — AI Subscription Tracker",
-  "short_name": "SubPilot",
-  "description": "Track subscriptions, catch price hikes, find offers, and save money with AI.",
+  "name": "SubTrack AI — Outsmart Your Subscriptions",
+  "short_name": "SubTrack AI",
+  "description": "Track subscriptions, earn Savvy Points, unlock coupon scratch cards with Savvy AI.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0f1a1c",

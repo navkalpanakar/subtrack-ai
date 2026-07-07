@@ -1,12 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192">
   <defs>
     <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#10b981"/>
+      <stop offset="0" stop-color="#34d399"/>
       <stop offset="1" stop-color="#059669"/>
     </linearGradient>
   </defs>
   <rect width="192" height="192" rx="44" fill="url(#g)"/>
-  <path d="M96 40c-22 0-40 18-40 40 0 14 7 26 18 33l-6 33 28-16 28 16-6-33c11-7 18-19 18-33 0-22-18-40-40-40z" fill="none" stroke="#fff" stroke-width="7" stroke-linejoin="round"/>
-  <circle cx="96" cy="80" r="14" fill="#fff"/>
-  <text x="96" y="150" font-family="system-ui,sans-serif" font-size="26" font-weight="800" fill="#fff" text-anchor="middle">SubPilot</text>
+  <!-- Savvy mascot head -->
+  <path d="M96 44c-18 0-32 13-32 30 0 9 4 16 11 21-1 5-3 12-3 12s8-4 13-8c3 1 7 2 11 2 18 0 32-13 32-30S114 44 96 44z" fill="#fff" opacity="0.95"/>
+  <circle cx="86" cy="74" r="4" fill="#06281f"/>
+  <circle cx="106" cy="74" r="4" fill="#06281f"/>
+  <path d="M86 86 q10 8 20 0" stroke="#06281f" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <text x="96" y="150" font-family="system-ui,sans-serif" font-size="22" font-weight="800" fill="#fff" text-anchor="middle">SubTrack AI</text>
 </svg>

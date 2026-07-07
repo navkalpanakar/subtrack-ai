@@ -1,4 +1,4 @@
-// SubPilot — AI-powered subscription tracker
+// SubTrack AI — AI-powered subscription tracker with gamification
 // SQLite datasource (primitives only)
 
 generator client {
@@ -21,6 +21,10 @@ model User {
   accounts      Account[]
   sessions      Session[]
   subscriptions Subscription[]
+  progress      UserProgress?
+  challenges    UserChallenge[]
+  rewards       RedeemedReward[]
+  badges        UserBadge[]
 }
 
 model Account {
@@ -65,14 +69,13 @@ model Subscription {
   category        String   @default("Other")
   amount          Float
   currency        String   @default("USD")
-  billingCycle    String   @default("monthly") // monthly | yearly | weekly | quarterly
+  billingCycle    String   @default("monthly")
   nextBillingDate DateTime
   startDate       DateTime?
-  status          String   @default("active") // active | cancelled | trial | paused
+  status          String   @default("active")
   logo            String?
   color           String?
   notes           String?
-  // comma-separated usage tags, e.g. "streaming,music"
   usageTags       String   @default("")
   cancelUrl       String?
   createdAt       DateTime @default(now())
@@ -81,4 +84,93 @@ model Subscription {
 
   @@index([userId])
   @@index([nextBillingDate])
+}
+
+// ─── Gamification ──────────────────────────────────────────────
+
+model UserProgress {
+  userId         String   @id
+  points         Int      @default(0)
+  level          Int      @default(1)
+  streak         Int      @default(0)
+  lastCheckIn    DateTime?
+  savingsGoal    Int      @default(100) // monthly savings goal in USD
+  totalSaved     Int      @default(0)   // cumulative $ saved via cancellations
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Challenge {
+  id          String   @id @default(cuid())
+  title       String
+  detail      String
+  points      Int
+  goal        Int      // target count to complete
+  icon        String   @default("target")
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  userProgress UserChallenge[]
+}
+
+model UserChallenge {
+  id          String   @id @default(cuid())
+  userId      String
+  challengeId String
+  progress    Int      @default(0)
+  completed   Boolean  @default(false)
+  completedAt DateTime?
+  claimedAt   DateTime?
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  challenge   Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, challengeId])
+}
+
+// Reward tiers unlockable with points (scratch-card coupon reveal)
+model Reward {
+  id          String   @id @default(cuid())
+  title       String
+  detail      String
+  cost        Int      // points required
+  tier        String   @default("bronze") // bronze | silver | gold
+  icon        String   @default("gift")
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  redeemed    RedeemedReward[]
+}
+
+model RedeemedReward {
+  id        String   @id @default(cuid())
+  userId    String
+  rewardId  String
+  offerTitle String?
+  offerUrl  String?
+  offerDetail String?
+  revealed  Boolean  @default(false)
+  redeemedAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reward    Reward   @relation(fields: [rewardId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Badge {
+  id        String   @id @default(cuid())
+  key       String   @unique // e.g. "first_subscription"
+  title     String
+  detail    String
+  icon      String
+  userBadges UserBadge[]
+}
+
+model UserBadge {
+  id        String   @id @default(cuid())
+  userId    String
+  badgeId   String
+  earnedAt  DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badge     Badge    @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, badgeId])
 }

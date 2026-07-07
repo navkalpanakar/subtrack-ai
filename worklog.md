@@ -96,3 +96,42 @@ Stage Summary:
 - Login loop FIXED. The app now works inside the cross-origin preview iframe.
 - Token session is robust against any cookie/SameSite/iframe/proxy combination.
 - Google OAuth still available for production via NextAuth (cookie-based, works on same-origin deployment).
+
+---
+Task ID: 4
+Agent: main
+Task: Rebrand to SubTrack AI + Savvy mascot + gamification (points, levels, streak, scratch-card coupons, challenges, badges) + UI redesign for clarity + engagement hooks
+
+Work Log:
+- Rebrand: SubPilot → "SubTrack AI" everywhere. New name, tagline ("Outsmart Your Subscriptions"), PWA manifest, metadata, app icons (SVG with Savvy mascot head). Email domain guest@subtrack.ai.
+- AI mascot: built SavvyMascot SVG component (4 variants: idle/happy/excited/wink) — friendly emerald blob with eyes + antenna spark. Appears on login, dashboard tip, insights intro, rewards encouragement.
+- Prisma schema extended: UserProgress (points/level/streak/savingsGoal/totalSaved), Challenge, UserChallenge, Reward, RedeemedReward, Badge, UserBadge. Pushed to DB + regenerated client.
+- Gamification engine (src/lib/gamification.ts): points rules (add+10, cancel+50, view-insights+5, check-in+5, 7-day-bonus+50, unlock+15), 5 levels (Rookie→Saver→Pro→Master→Legend) with icons + progress, streak logic (consecutive days, breaks on gap), 8 badges, 5 seeded challenges, 3 reward tiers (Bronze 50/Silver 150/Gold 300 pts).
+- API routes: /api/progress (full gamification state), /api/progress/check-in (daily streak), /api/rewards (tiers), /api/rewards/redeem (unlock scratch card, deduct points), /api/rewards/scratch (reveal offer via web-search).
+- Wired points into existing actions: POST /api/subscriptions (+10, first_subscription badge, ➕ challenge), DELETE /api/subscriptions/[id] (+50, first_cancel badge, ✂️ challenge, totalSaved tracking), GET /api/ai/insights (+5, curious badge, 🧠 challenge).
+- Hooks: use-gamification.ts (useProgress, useCheckIn, useRewardTiers, useRedeemReward, useScratchReward).
+- UI redesign:
+  * Login screen: Savvy mascot + "SubTrack AI" + 4 value-prop cards (AI quick-add, Earn Savvy Points, Unlock reward cards, Build streak) + "Start free — earn 10 points" CTA.
+  * Dashboard: gamification header strip (points + streak + level + Rewards link), spend hero (now shows Saved $), Savvy tip-of-the-day card ("Savvy says"), savings-goal progress bar, clearer renewal urgency with "+50 points" cancel incentive.
+  * AI Insights tab → "Savvy Insights": Savvy mascot intro card ("Hi, I'm Savvy"), personalized insights with type badges.
+  * NEW Rewards tab (replaces Offers): level/points hero with progress, daily check-in + streak, 3 stat tiles (points/quests/badges), scratch-card reveal component (canvas-based drag-to-scratch, 45% threshold, commits offer to backend), unlock-reward tiers (locked/affordable), quests with progress bars, badges grid (earned + locked).
+  * Bottom nav: Home / Subs / AI / Rewards (Gift icon).
+- Scratch card: canvas-based foil with "SCRATCH TO REVEAL" text, pointer drag erases, samples cleared pixels, auto-reveals at 45%, fetches real web-search offer on reveal. Tiers shown with bronze/silver/gold gradients.
+- Engagement hooks: daily streak (fire icon, 7-day bonus), savings goal progress bar, Savvy tip-of-the-day (rotating), renewal urgency with point incentives, badge collection (8 slots, greyed when locked), level progression.
+
+Verification (Agent Browser, fresh session):
+- Login screen shows "SubTrack AI" + Savvy mascot + "Start free — earn 10 points" ✓
+- Demo sign-in → dashboard with gamification header (pts/streak/level) + Savvy tip card + spend hero ✓
+- Rewards tab: level hero, check-in button, locked reward tiers, quests, badges grid ✓
+- Daily check-in → earned +5 points, streak = 1 day, button disabled ✓
+- AI quick-add "Dropbox 11.99 monthly renews the 20th" → parsed + saved → +10 points + First Steps badge ✓
+- Points accumulated to 40 (5 check-in + 10 add + 25 challenge completion) ✓
+- Badges count = 2 ✓
+- AI Insights tab → "Savvy Insights" with Savvy intro + 6 contextual insights (Duplicate Cloud Storage, Streaming Consolidation, etc.) ✓
+- Zero errors in dev log, lint clean.
+
+Stage Summary:
+- Full rebrand + gamification + UI redesign complete and verified.
+- Scratch-card coupon reveal replaces direct offers — users earn points then scratch to reveal real web-searched deals.
+- Savvy AI mascot gives the product a memorable, friendly identity.
+- Engagement loops: streaks (daily return), points (every action), badges (collection), challenges (quests), levels (progression), scratch cards (variable reward).
