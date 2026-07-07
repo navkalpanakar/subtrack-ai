@@ -224,3 +224,61 @@ Stage Summary:
 - Gamification now includes games: daily spin wheel (random points) + weekly leaderboard (top user wins a free subscription). This drives daily return + competitive retention.
 - Every subscription shows the real organization logo (Netflix, Spotify, etc.) with graceful initials fallback.
 - Phone login works with mock OTP (dev preview shows the code). Real SMS needs Twilio wiring in production.
+
+---
+Task ID: 7
+Agent: main
+Task: Spin wheel fix (points only after animation), referral/share system (+5 share, +25 install), email OTP verification before login, user profile page (edit name/phone, change email with OTP), remove phone from login, redesign dashboard hero, fix subscription logos
+
+Work Log:
+- Spin wheel fix: SpinWheel component now calls the API to lock in the result, animates the wheel (3.5s), and only shows the points toast/result via onAnimationComplete AFTER the wheel stops. Hook no longer fires the toast immediately.
+- Referral/share system:
+  * Referral model (referrerId, referredId, code, status, pointsAwarded, installedAt)
+  * User model: added referralCode + referredBy fields
+  * /api/referral/share (POST): generates referral code, awards +5 for sharing (daily), simulates install 50% of the time for +25 bonus (preview)
+  * /api/referral/status (GET): returns code, shareUrl, shares/installs/totalPoints counts
+  * useReferralStatus + useShareReferral hooks
+  * Profile page: referral card with share URL, copy button, stats grid, "Share & earn points" button
+- Email OTP verification (the new primary login flow):
+  * /api/auth/email-send: validates email format, issues OTP, returns devOtp in preview
+  * /api/auth/email-verify: verifies OTP, THEN creates/finds user + issues token (account only created after verification)
+  * Login screen: Email → enter email → "Send verification code" → OTP screen → "Verify & create account"
+  * Client-side email validation before sending
+  * Preview shows the OTP code in an amber box + toast
+- Phone login removed from login page (moved to Profile settings). Login now: Email (with OTP) / Google / Microsoft / Apple / Demo only.
+- User Profile page (new "You" tab):
+  * GET/PATCH /api/account/profile (name + phone editable without verification)
+  * POST /api/account/change-email-send + change-email-verify (email change REQUIRES OTP)
+  * Profile UI: user header card, referral card, editable name/phone fields, email change with OTP flow, linked accounts list (Google/Microsoft/Apple/Email/Phone with Linked status), sign out
+- Dashboard hero redesign:
+  * Animated gradient background (emerald gradient)
+  * Floating animated orbs (Framer Motion infinite loop)
+  * Sparkline SVG decoration
+  * Savings chip (glassmorphism) showing "$X saved this month"
+  * Cleaner typography with year/active inline
+- Logo fix:
+  * Switched from Clearbit (unreachable) to DuckDuckGo Icons (icons.duckduckgo.com/ip3/{domain}.ico) as primary
+  * LOGO_FALLBACKS helper: DuckDuckGo → Google favicon → Clearbit
+  * SubscriptionCard: cycles through fallback chain on error, initials always rendered as base layer
+  * Verified: logos now load (naturalWidth=32, complete=true) for Netflix, Notion, OpenAI, Spotify
+- Removed SessionProvider from providers (caused /api/auth/session fetch errors in iframe). Token-based auth only now. NextAuth still available server-side for OAuth callbacks.
+- Bottom nav: 5 tabs (Home/Subs/AI/Rewards/You) with center FAB
+
+Verification (Agent Browser):
+- Login screen: Email + Google + Microsoft + Apple + Demo (no phone) ✓
+- Email flow: entered testuser@email.com → "Send verification code" → OTP 4514 shown → verified → dashboard ✓
+- Dashboard: redesigned hero with animated gradient + sparkline + savings chip ✓
+- Subscription logos: DuckDuckGo icons loading for Netflix, Notion, OpenAI, Spotify (naturalWidth=32) ✓
+- Profile tab ("You"): referral card, editable fields, linked accounts, sign out ✓
+- Share & earn: clicked → "Shared!" + install bonus awarded, stats updated ✓
+- Rewards tab: Spin wheel → spun → "+25 points!" appeared AFTER animation stopped ✓
+- Zero errors in dev log, lint clean.
+
+Stage Summary:
+- Spin wheel now correctly awards points only when it stops (result shown where pointer lands).
+- Referral system: +5 on share, +25 when invite installs. Drives viral growth.
+- Email verification mandatory before account creation — no more unverified emails.
+- Profile page with email change requiring OTP verification.
+- Phone moved to profile settings (not on login page).
+- Dashboard hero is more attractive with animated gradient + sparkline + savings chip.
+- Logos fixed — DuckDuckGo icons render real brand logos with initials fallback.

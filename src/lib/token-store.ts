@@ -44,28 +44,28 @@ export function revokeToken(token: string | null | undefined): void {
 }
 
 // ─── Phone OTP (mock — in production wire to Twilio/MessageBird) ────
-export function issueOtp(phone: string): string {
-  // 4-digit code
+export function issueOtp(key: string): string {
+  // 4-digit code. `key` can be a phone OR an email.
   const otp = String(Math.floor(1000 + Math.random() * 9000));
-  otpStore.set(phone, { otp, phone, expires: Date.now() + OTP_TTL_MS });
+  otpStore.set(key, { otp, phone: key, expires: Date.now() + OTP_TTL_MS });
   return otp;
 }
 
-export function verifyOtp(phone: string, otp: string): boolean {
-  const entry = otpStore.get(phone);
+export function verifyOtp(key: string, otp: string): boolean {
+  const entry = otpStore.get(key);
   if (!entry) return false;
   if (entry.expires < Date.now()) {
-    otpStore.delete(phone);
+    otpStore.delete(key);
     return false;
   }
   if (entry.otp !== otp) return false;
-  otpStore.delete(phone);
+  otpStore.delete(key);
   return true;
 }
 
-export function peekOtp(phone: string): string | null {
-  // Dev-only: let the UI display the OTP for testing without real SMS.
-  const entry = otpStore.get(phone);
+export function peekOtp(key: string): string | null {
+  // Dev-only: let the UI display the OTP for testing without real SMS/email.
+  const entry = otpStore.get(key);
   if (!entry || entry.expires < Date.now()) return null;
   return entry.otp;
 }

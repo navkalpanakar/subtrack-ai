@@ -30,6 +30,8 @@ type AuthState = {
   loading: boolean;
   signInDemo: () => Promise<void>;
   signInEmail: (email: string, name?: string) => Promise<void>;
+  sendEmailOtp: (email: string) => Promise<{ sent: boolean; devOtp?: string; error?: string }>;
+  verifyEmailOtp: (email: string, otp: string, name?: string) => Promise<{ token?: string; error?: string }>;
   sendPhoneOtp: (phone: string) => Promise<{ sent: boolean; devOtp?: string }>;
   verifyPhoneOtp: (phone: string, otp: string, name?: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -117,6 +119,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(false);
   }, []);
 
+  // Email-with-OTP verification flow (the new primary email login)
+  const sendEmailOtp = useCallback(async (email: string) => {
+    const res = await fetch("/api/auth/email-send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    const data: { sent: boolean; devOtp?: string; error?: string } = await res.json();
+    return data;
+  }, []);
+
+  const verifyEmailOtp = useCallback(async (email: string, otp: string, name?: string) => {
+    setLoading(true);
+    const res = await fetch("/api/auth/email-verify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, otp, name }),
+    });
+    const data: { token: string; user: SessionUser; error?: string } = await res.json();
+    if (data.token) {
+      localStorage.setItem(TOKEN_KEY, data.token);
+      setUser(data.user);
+    }
+    setLoading(false);
+    return data;
+  }, []);
+
   const sendPhoneOtp = useCallback(async (phone: string) => {
     const res = await fetch("/api/auth/phone-send", {
       method: "POST",
@@ -150,8 +179,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ user, loading, signInDemo, signInEmail, sendPhoneOtp, verifyPhoneOtp, signOut }),
-    [user, loading, signInDemo, signInEmail, sendPhoneOtp, verifyPhoneOtp, signOut]
+    () => ({ user, loading, signInDemo, signInEmail, sendEmailOtp, verifyEmailOtp, sendPhoneOtp, verifyPhoneOtp, signOut }),
+    [user, loading, signInDemo, signInEmail, sendEmailOtp, verifyEmailOtp, sendPhoneOtp, verifyPhoneOtp, signOut]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

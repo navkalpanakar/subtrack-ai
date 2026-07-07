@@ -1,35 +1,59 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { motion } from "framer-motion";
 import { Loader2, Sparkles } from "lucide-react";
 import { useSpinState, useSpin } from "@/hooks/use-gamification";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 // Daily spin-the-wheel. One free spin per day. Weighted random rewards.
+// The spin API is called immediately (to lock in the result server-side),
+// but the points toast only shows AFTER the wheel animation finishes.
 export function SpinWheel() {
   const { data: spinState } = useSpinState();
   const spin = useSpin();
   const [rotation, setRotation] = useState(0);
   const [result, setResult] = useState<number | null>(null);
+  const [spinning, setSpinning] = useState(false);
+  const pendingResult = useRef<number | null>(null);
 
   const wheel = spinState?.wheel || [5, 10, 15, 20, 25, 50, 100, 200];
   const segmentAngle = 360 / wheel.length;
 
   const handleSpin = async () => {
     setResult(null);
+    setSpinning(true);
+    // Call the API to lock in the result (server awards points immediately)
     const res = await spin.mutateAsync();
     if (res.spun && res.index !== undefined) {
-      // Animate to the winning segment
+      pendingResult.current = res.points;
+      // Animate to the winning segment (5 full rotations + segment)
       const targetAngle = 360 * 5 + (360 - res.index * segmentAngle - segmentAngle / 2);
       setRotation(targetAngle);
-      setTimeout(() => setResult(res.points), 100);
+      // The toast/result will be revealed by onAnimationComplete
+    } else {
+      setSpinning(false);
+      // "already spun" toast already shown by the hook
+    }
+  };
+
+  const handleAnimationComplete = () => {
+    if (pendingResult.current !== null) {
+      const pts = pendingResult.current;
+      setResult(pts);
+      setSpinning(false);
+      pendingResult.current = null;
+      // Show the points toast only now, after the wheel has stopped
+      toast.success(`🎉 You won ${pts} points!`, {
+        description: "Points added to your balance",
+      });
     }
   };
 
   const colors = [
-    "#10b981", "#059669", "#f59e0b", "#ef4444",
-    "#8b5cf6", "#3b82f6", "#ec4899", "#14b8a6",
+    "#10b981", "#f59e0b", "#ef4444", "#8b5cf6",
+    "#3b82f6", "#ec4899", "#14b8a6", "#f97316",
   ];
 
   return (
@@ -53,7 +77,8 @@ export function SpinWheel() {
         <motion.div
           className="w-full h-full rounded-full relative overflow-hidden border-4 border-primary/30"
           animate={{ rotate: rotation }}
-          transition={{ duration: 3, ease: "easeOut" }}
+          transition={{ duration: 3.5, ease: [0.17, 0.67, 0.3, 0.99] }}
+          onAnimationComplete={handleAnimationComplete}
         >
           {wheel.map((pts, i) => {
             const angle = i * segmentAngle;
@@ -86,6 +111,7 @@ export function SpinWheel() {
         </div>
       </div>
 
+      {/* Result — shows where the wheel stopped */}
       {result !== null && (
         <motion.div
           initial={{ scale: 0, opacity: 0 }}
@@ -98,10 +124,10 @@ export function SpinWheel() {
 
       <Button
         onClick={handleSpin}
-        disabled={!spinState?.canSpin || spin.isPending}
+        disabled={!spinState?.canSpin || spin.isPending || spinning}
         className="w-full"
       >
-        {spin.isPending ? (
+        {spin.isPending || spinning ? (
           <Loader2 className="h-4 w-4 animate-spin" />
         ) : spinState?.canSpin ? (
           "Spin now (free)"

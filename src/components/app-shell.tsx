@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { Home, ListChecks, Lightbulb, Gift, Plus, LogOut, Moon, Sun } from "lucide-react";
+import { Home, ListChecks, Lightbulb, Gift, User, Plus, LogOut, Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useAuth } from "@/hooks/use-auth";
 import { useUI, type Tab } from "@/hooks/use-ui";
@@ -9,6 +9,7 @@ import { DashboardView } from "./views/dashboard";
 import { SubscriptionsView } from "./views/subscriptions";
 import { InsightsView } from "./views/insights";
 import { RewardsView } from "./views/rewards";
+import { ProfileView } from "./views/profile";
 import { QuickAddSheet } from "./quick-add-sheet";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -18,6 +19,7 @@ const TABS: { id: Tab; label: string; icon: typeof Home }[] = [
   { id: "subs", label: "Subs", icon: ListChecks },
   { id: "insights", label: "AI", icon: Lightbulb },
   { id: "rewards", label: "Rewards", icon: Gift },
+  { id: "profile", label: "You", icon: User },
 ];
 
 export function AppShell() {
@@ -81,6 +83,7 @@ export function AppShell() {
             {tab === "subs" && <SubscriptionsView />}
             {tab === "insights" && <InsightsView />}
             {tab === "rewards" && <RewardsView />}
+            {tab === "profile" && <ProfileView />}
           </motion.div>
         </AnimatePresence>
       </main>
@@ -88,11 +91,11 @@ export function AppShell() {
       {/* Bottom navigation with center FAB */}
       <nav className="fixed bottom-0 inset-x-0 z-40 safe-bottom">
         <div className="mx-auto max-w-md px-4 pb-3">
-          <div className="glass rounded-2xl shadow-lg shadow-black/5 px-2 h-16 flex items-center justify-between relative">
+          <div className="glass rounded-2xl shadow-lg shadow-black/5 px-1 h-16 flex items-center justify-between relative">
             {TABS.slice(0, 2).map((t) => (
               <NavButton key={t.id} tab={t} active={tab === t.id} onClick={() => setTab(t.id)} />
             ))}
-            <div className="w-14" />
+            <div className="w-14 shrink-0" />
             {TABS.slice(2).map((t) => (
               <NavButton key={t.id} tab={t} active={tab === t.id} onClick={() => setTab(t.id)} />
             ))}

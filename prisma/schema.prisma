@@ -17,6 +17,8 @@ model User {
   phone         String?   @unique
   image         String?
   emailVerified DateTime?
+  referralCode  String?   @unique
+  referredBy    String?   // referral code of the inviter
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   accounts      Account[]
@@ -27,6 +29,7 @@ model User {
   rewards       RedeemedReward[]
   badges        UserBadge[]
   linkedAccounts LinkedAccount[]
+  referrals     Referral[]
 }
 
 model Account {
@@ -199,4 +202,19 @@ model SpinResult {
   createdAt DateTime @default(now())
 
   @@unique([userId, date])
+}
+
+// Referral system — track shares + installs
+model Referral {
+  id          String   @id @default(cuid())
+  referrerId  String   // user who shared
+  referredId  String?  // user who installed (null until they sign up)
+  code        String   // the referral code shared
+  status      String   @default("shared") // shared | installed | rewarded
+  pointsAwarded Int    @default(0)
+  createdAt   DateTime @default(now())
+  installedAt DateTime?
+  user        User     @relation(fields: [referrerId], references: [id], onDelete: Cascade)
+
+  @@index([referrerId])
 }

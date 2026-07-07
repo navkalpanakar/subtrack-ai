@@ -3,26 +3,22 @@
 import { signIn } from "next-auth/react";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, Mail, Phone, Loader2, ArrowLeft, MessageSquare } from "lucide-react";
+import { Sparkles, Mail, Loader2, ArrowLeft, MessageSquare } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { SavvyMascot } from "./savvy-mascot";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-type Mode = "main" | "email" | "phone" | "otp";
+type Mode = "main" | "email" | "otp";
 
 export function LoginScreen() {
-  const { signInDemo, signInEmail, sendPhoneOtp, verifyPhoneOtp } = useAuth();
+  const { signInDemo, sendEmailOtp, verifyEmailOtp } = useAuth();
   const [mode, setMode] = useState<Mode>("main");
   const [loading, setLoading] = useState<null | string>(null);
 
-  // Email form
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
-
-  // Phone form
-  const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
   const [devOtp, setDevOtp] = useState<string | null>(null);
 
@@ -48,31 +44,22 @@ export function LoginScreen() {
     }
   };
 
-  const handleEmailSubmit = async () => {
-    if (!email.includes("@")) {
-      toast.error("Enter a valid email");
+  const handleEmailSend = async () => {
+    // Client-side email validation before sending the code
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      toast.error("Please enter a valid email address");
       return;
     }
-    setLoading("email");
+    setLoading("email-send");
     try {
-      await signInEmail(email, name || undefined);
-    } catch {
-      toast.error("Could not sign in");
-      setLoading(null);
-    }
-  };
-
-  const handlePhoneSend = async () => {
-    if (phone.length < 6) {
-      toast.error("Enter a valid phone number");
-      return;
-    }
-    setLoading("phone-send");
-    try {
-      const res = await sendPhoneOtp(phone);
+      const res = await sendEmailOtp(email);
+      if (res.error) {
+        toast.error(res.error);
+        return;
+      }
       if (res.devOtp) {
         setDevOtp(res.devOtp);
-        toast.success(`Dev OTP: ${res.devOtp} (no real SMS in preview)`);
+        toast.success(`Verification code sent! Preview code: ${res.devOtp}`);
       }
       setMode("otp");
     } catch {
@@ -82,16 +69,21 @@ export function LoginScreen() {
     }
   };
 
-  const handlePhoneVerify = async () => {
+  const handleEmailVerify = async () => {
     if (otp.length < 4) {
       toast.error("Enter the 4-digit code");
       return;
     }
-    setLoading("phone-verify");
+    setLoading("email-verify");
     try {
-      await verifyPhoneOtp(phone, otp, name || undefined);
+      const res = await verifyEmailOtp(email, otp, name || undefined);
+      if (res.error) {
+        toast.error(res.error);
+        setLoading(null);
+      }
+      // on success the auth context updates and RootGate flips to AppShell
     } catch {
-      toast.error("Invalid code");
+      toast.error("Could not verify");
       setLoading(null);
     }
   };
@@ -111,7 +103,6 @@ export function LoginScreen() {
           transition={{ duration: 0.5 }}
           className="w-full max-w-sm"
         >
-          {/* Logo + mascot */}
           <div className="flex flex-col items-center text-center mb-6">
             <motion.div
               initial={{ scale: 0, rotate: -20 }}
@@ -140,7 +131,6 @@ export function LoginScreen() {
                 exit={{ opacity: 0, x: -20 }}
                 className="space-y-2.5"
               >
-                {/* Email */}
                 <button
                   onClick={() => setMode("email")}
                   disabled={loading !== null}
@@ -150,31 +140,18 @@ export function LoginScreen() {
                   Continue with Email
                 </button>
 
-                {/* Phone */}
-                <button
-                  onClick={() => setMode("phone")}
-                  disabled={loading !== null}
-                  className="w-full h-12 rounded-xl border border-border bg-card hover:bg-accent font-medium flex items-center justify-center gap-3 active:scale-[0.98] transition disabled:opacity-60"
-                >
-                  <Phone className="h-5 w-5" />
-                  Continue with Phone
-                </button>
-
-                {/* Divider */}
                 <div className="flex items-center gap-2 py-1">
                   <div className="h-px bg-border flex-1" />
                   <span className="text-[10px] text-muted-foreground uppercase tracking-wide">or</span>
                   <div className="h-px bg-border flex-1" />
                 </div>
 
-                {/* OAuth providers */}
                 <div className="grid grid-cols-3 gap-2">
                   <OAuthButton label="Google" color="#EA4335" onClick={handleGoogle} loading={loading === "google"} />
                   <OAuthButton label="Microsoft" color="#00A4EF" onClick={handleMicrosoft} loading={loading === "microsoft"} />
                   <OAuthButton label="Apple" color="#111111" onClick={handleApple} loading={loading === "apple"} />
                 </div>
 
-                {/* Demo */}
                 <button
                   onClick={handleDemo}
                   disabled={loading !== null}
@@ -189,12 +166,12 @@ export function LoginScreen() {
                 </button>
 
                 <p className="text-[10px] text-muted-foreground text-center mt-3">
-                  Sign up with any method — link others later to sync more inboxes.
+                  Email verification required · link more accounts later in Profile
                 </p>
               </motion.div>
             )}
 
-            {/* ─── Email mode ─── */}
+            {/* ─── Email entry mode ─── */}
             {mode === "email" && (
               <motion.div
                 key="email"
@@ -214,6 +191,7 @@ export function LoginScreen() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="h-11"
+                    onKeyDown={(e) => e.key === "Enter" && handleEmailSend()}
                   />
                   <Input
                     placeholder="Your name (optional)"
@@ -223,57 +201,20 @@ export function LoginScreen() {
                   />
                 </div>
                 <Button
-                  onClick={handleEmailSubmit}
+                  onClick={handleEmailSend}
                   disabled={loading !== null || !email.includes("@")}
                   className="w-full h-11"
                 >
-                  {loading === "email" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4 mr-2" />}
-                  Continue
+                  {loading === "email-send" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4 mr-2" />}
+                  Send verification code
                 </Button>
                 <p className="text-[10px] text-muted-foreground text-center">
-                  Passwordless — we'll create your account instantly.
+                  We'll send a 4-digit code to verify your email before creating your account.
                 </p>
               </motion.div>
             )}
 
-            {/* ─── Phone mode ─── */}
-            {mode === "phone" && (
-              <motion.div
-                key="phone"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                className="space-y-3"
-              >
-                <BackButton onClick={() => setMode("main")} />
-                <div className="flex items-center gap-2 text-sm font-medium">
-                  <Phone className="h-4 w-4 text-primary" /> Continue with Phone
-                </div>
-                <Input
-                  type="tel"
-                  placeholder="+91 98765 43210"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="h-11"
-                />
-                <Input
-                  placeholder="Your name (optional)"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="h-11"
-                />
-                <Button
-                  onClick={handlePhoneSend}
-                  disabled={loading !== null || phone.length < 6}
-                  className="w-full h-11"
-                >
-                  {loading === "phone-send" ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4 mr-2" />}
-                  Send code
-                </Button>
-              </motion.div>
-            )}
-
-            {/* ─── OTP mode ─── */}
+            {/* ─── OTP verification mode ─── */}
             {mode === "otp" && (
               <motion.div
                 key="otp"
@@ -282,16 +223,16 @@ export function LoginScreen() {
                 exit={{ opacity: 0, x: -20 }}
                 className="space-y-3"
               >
-                <BackButton onClick={() => setMode("phone")} />
+                <BackButton onClick={() => setMode("email")} />
                 <div className="flex items-center gap-2 text-sm font-medium">
-                  <MessageSquare className="h-4 w-4 text-primary" /> Enter the code
+                  <MessageSquare className="h-4 w-4 text-primary" /> Verify your email
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Sent to <span className="font-medium text-foreground">{phone}</span>
+                  Enter the code sent to <span className="font-medium text-foreground">{email}</span>
                 </p>
                 {devOtp && (
                   <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-2.5 text-center">
-                    <p className="text-[10px] text-amber-600 dark:text-amber-400 uppercase tracking-wide">Preview OTP</p>
+                    <p className="text-[10px] text-amber-600 dark:text-amber-400 uppercase tracking-wide">Preview code</p>
                     <p className="text-2xl font-bold tracking-[0.3em] text-amber-600 dark:text-amber-400">{devOtp}</p>
                   </div>
                 )}
@@ -302,15 +243,22 @@ export function LoginScreen() {
                   value={otp}
                   onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 4))}
                   className="h-12 text-center text-2xl tracking-[0.5em]"
+                  onKeyDown={(e) => e.key === "Enter" && handleEmailVerify()}
                 />
                 <Button
-                  onClick={handlePhoneVerify}
+                  onClick={handleEmailVerify}
                   disabled={loading !== null || otp.length < 4}
                   className="w-full h-11"
                 >
-                  {loading === "phone-verify" ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                  Verify & continue
+                  {loading === "email-verify" ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                  Verify & create account
                 </Button>
+                <button
+                  onClick={handleEmailSend}
+                  className="text-xs text-muted-foreground hover:text-foreground w-full text-center"
+                >
+                  Didn't get a code? Resend
+                </button>
               </motion.div>
             )}
           </AnimatePresence>

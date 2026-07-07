@@ -2,7 +2,7 @@
 
 import { create } from "zustand";
 
-export type Tab = "home" | "subs" | "insights" | "rewards";
+export type Tab = "home" | "subs" | "insights" | "rewards" | "profile";
 
 interface UIState {
   tab: Tab;

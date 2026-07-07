@@ -211,9 +211,9 @@ export function useSpin() {
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ["progress"] });
       qc.invalidateQueries({ queryKey: ["spin-state"] });
-      if (data.spun) {
-        toast.success(`🎉 You won ${data.points} points!`);
-      } else {
+      // Note: the spin result toast is shown by the SpinWheel component
+      // AFTER the wheel animation completes, not here.
+      if (!data.spun) {
         toast(data.message || "Already spun today");
       }
     },
@@ -225,5 +225,35 @@ export function useLeaderboard() {
   return useQuery<Leaderboard>({
     queryKey: ["leaderboard"],
     queryFn: () => api("/api/games/leaderboard"),
+  });
+}
+
+// ─── Referral ──────────────────────────────────────────────────
+export type ReferralStatus = {
+  referralCode: string;
+  shareUrl: string;
+  shares: number;
+  installs: number;
+  totalPoints: number;
+};
+
+export function useReferralStatus() {
+  return useQuery<ReferralStatus>({
+    queryKey: ["referral-status"],
+    queryFn: () => api("/api/referral/status"),
+  });
+}
+
+export function useShareReferral() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      api<{ referralCode: string; shareUrl: string; awarded: number; message: string }>("/api/referral/share", { method: "POST" }),
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ["progress"] });
+      qc.invalidateQueries({ queryKey: ["referral-status"] });
+      toast.success(data.message);
+    },
+    onError: (e: Error) => toast.error(e.message),
   });
 }

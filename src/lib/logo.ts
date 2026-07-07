@@ -105,5 +105,21 @@ export function logoForProvider(provider: string): string {
   const domain =
     PROVIDER_DOMAINS[key] ||
     `${key.replace(/[^a-z0-9]/g, "").slice(0, 20) || "example"}.com`;
-  return `https://logo.clearbit.com/${domain}`;
+  // DuckDuckGo Icons is the most reliable favicon service (no API key,
+  // high uptime, returns real brand logos). Clearbit is unreachable from
+  // some networks; Google favicon is a backup.
+  return `https://icons.duckduckgo.com/ip3/${domain}.ico`;
 }
+
+// Backup logo URLs tried in order if the primary fails (client-side).
+export const LOGO_FALLBACKS = (provider: string): string[] => {
+  const key = provider.toLowerCase().trim();
+  const domain =
+    PROVIDER_DOMAINS[key] ||
+    `${key.replace(/[^a-z0-9]/g, "").slice(0, 20) || "example"}.com`;
+  return [
+    `https://icons.duckduckgo.com/ip3/${domain}.ico`,
+    `https://www.google.com/s2/favicons?domain=${domain}&sz=128`,
+    `https://logo.clearbit.com/${domain}`,
+  ];
+};

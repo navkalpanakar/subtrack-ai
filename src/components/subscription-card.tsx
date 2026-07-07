@@ -16,6 +16,7 @@ import {
   relativeRenewal,
   daysUntil,
 } from "@/lib/format";
+import { LOGO_FALLBACKS } from "@/lib/logo";
 import type { Subscription } from "@/hooks/use-subscriptions";
 
 export function SubscriptionCard({
@@ -29,13 +30,20 @@ export function SubscriptionCard({
   onDelete?: (id: string) => void;
   compact?: boolean;
 }) {
-  const [logoFailed, setLogoFailed] = useState(false);
+  const [logoIdx, setLogoIdx] = useState(0);
   const days = daysUntil(sub.nextBillingDate);
   const monthly = monthlyEquivalent(Number(sub.amount), sub.billingCycle);
   const urgent = days <= 3 && sub.status === "active";
   const overdue = days < 0 && sub.status === "active";
   const brandColor = sub.color || "#64748b";
   const initials = sub.name.slice(0, 2).toUpperCase();
+
+  // Build the list of logo URLs to try: stored logo first, then fallbacks.
+  const logoUrls = sub.logo
+    ? [sub.logo, ...LOGO_FALLBACKS(sub.provider || sub.name).filter((u) => u !== sub.logo)]
+    : LOGO_FALLBACKS(sub.provider || sub.name);
+  const currentLogo = logoUrls[logoIdx];
+  const allFailed = logoIdx >= logoUrls.length;
 
   return (
     <motion.div
@@ -54,12 +62,12 @@ export function SubscriptionCard({
         >
           {initials}
         </span>
-        {sub.logo && !logoFailed && (
+        {currentLogo && !allFailed && (
           <img
-            src={sub.logo}
+            src={currentLogo}
             alt={sub.name}
             className="h-7 w-7 object-contain absolute inset-0 m-auto"
-            onError={() => setLogoFailed(true)}
+            onError={() => setLogoIdx((i) => i + 1)}
           />
         )}
       </div>

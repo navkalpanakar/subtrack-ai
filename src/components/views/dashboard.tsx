@@ -107,37 +107,75 @@ export function DashboardView() {
         </motion.div>
       )}
 
-      {/* Hero spend card */}
+      {/* Hero spend card — redesigned with animated gradient + sparkline */}
       <motion.div
         initial={{ opacity: 0, scale: 0.97 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary to-primary/70 text-primary-foreground p-5 shadow-xl shadow-primary/20"
+        className="relative overflow-hidden rounded-3xl text-primary-foreground p-5 shadow-xl shadow-primary/20"
+        style={{
+          background: "linear-gradient(135deg, #059669 0%, #10b981 40%, #34d399 100%)",
+        }}
       >
-        <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-white/10" />
-        <div className="absolute -right-4 bottom-0 h-20 w-20 rounded-full bg-white/10" />
+        {/* Animated floating orbs */}
+        <motion.div
+          animate={{ x: [0, 20, 0], y: [0, -10, 0] }}
+          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-white/15 blur-xl"
+        />
+        <motion.div
+          animate={{ x: [0, -15, 0], y: [0, 15, 0] }}
+          transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute right-12 bottom-0 h-20 w-20 rounded-full bg-amber-300/20 blur-lg"
+        />
         <div className="relative">
-          <p className="text-primary-foreground/80 text-xs font-medium uppercase tracking-wide">
-            Monthly spend
-          </p>
-          <p className="text-4xl font-bold tracking-tight mt-1">
-            {formatCurrency(stats.monthly)}
-          </p>
-          <div className="flex items-center gap-4 mt-4">
+          <div className="flex items-start justify-between">
             <div>
-              <p className="text-[11px] text-primary-foreground/70">Per year</p>
-              <p className="text-sm font-semibold">{formatCurrency(stats.yearly)}</p>
+              <p className="text-primary-foreground/80 text-[11px] font-medium uppercase tracking-wider">
+                Monthly spend
+              </p>
+              <motion.p
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+                className="text-4xl font-bold tracking-tight mt-1"
+              >
+                {formatCurrency(stats.monthly)}
+              </motion.p>
+              <div className="flex items-center gap-1.5 mt-1">
+                <span className="text-[11px] text-primary-foreground/70">
+                  {formatCurrency(stats.yearly)}/yr
+                </span>
+                <span className="text-primary-foreground/40">·</span>
+                <span className="text-[11px] text-primary-foreground/70">{stats.active} active</span>
+              </div>
             </div>
-            <div className="h-8 w-px bg-white/20" />
-            <div>
-              <p className="text-[11px] text-primary-foreground/70">Active</p>
-              <p className="text-sm font-semibold">{stats.active} subs</p>
-            </div>
-            <div className="h-8 w-px bg-white/20" />
-            <div>
-              <p className="text-[11px] text-primary-foreground/70">Saved</p>
-              <p className="text-sm font-semibold">{formatCurrency(progress?.totalSaved || 0)}</p>
-            </div>
+            {/* Mini sparkline decoration */}
+            <svg width="56" height="36" viewBox="0 0 56 36" className="opacity-60">
+              <polyline
+                points="2,28 10,22 18,24 26,16 34,18 42,10 54,6"
+                fill="none"
+                stroke="white"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <circle cx="54" cy="6" r="3" fill="white" />
+            </svg>
           </div>
+          {/* Savings chip */}
+          {(progress?.totalSaved || 0) > 0 && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.4 }}
+              className="inline-flex items-center gap-1.5 mt-4 px-3 py-1.5 rounded-full bg-white/20 backdrop-blur-sm"
+            >
+              <TrendingDown className="h-3.5 w-3.5" />
+              <span className="text-xs font-semibold">
+                {formatCurrency(progress?.totalSaved || 0)} saved this month
+              </span>
+            </motion.div>
+          )}
         </div>
       </motion.div>
 
