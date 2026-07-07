@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "next/image";
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { MoreVertical, ExternalLink, Trash2, Pencil } from "lucide-react";
 import {
@@ -29,10 +29,13 @@ export function SubscriptionCard({
   onDelete?: (id: string) => void;
   compact?: boolean;
 }) {
+  const [logoFailed, setLogoFailed] = useState(false);
   const days = daysUntil(sub.nextBillingDate);
   const monthly = monthlyEquivalent(Number(sub.amount), sub.billingCycle);
   const urgent = days <= 3 && sub.status === "active";
   const overdue = days < 0 && sub.status === "active";
+  const brandColor = sub.color || "#64748b";
+  const initials = sub.name.slice(0, 2).toUpperCase();
 
   return (
     <motion.div
@@ -40,27 +43,24 @@ export function SubscriptionCard({
       whileHover={{ y: -2 }}
       className="glass rounded-2xl p-3 flex items-center gap-3"
     >
-      {/* Logo */}
+      {/* Logo — initials always rendered as base layer, brand logo overlaid */}
       <div
-        className="h-11 w-11 rounded-xl flex items-center justify-center shrink-0 overflow-hidden"
-        style={{ backgroundColor: (sub.color || "#64748b") + "20" }}
+        className="h-11 w-11 rounded-xl flex items-center justify-center shrink-0 overflow-hidden relative"
+        style={{ backgroundColor: brandColor + "20" }}
       >
-        {sub.logo ? (
+        <span
+          className="font-bold text-sm"
+          style={{ color: brandColor }}
+        >
+          {initials}
+        </span>
+        {sub.logo && !logoFailed && (
           <img
             src={sub.logo}
             alt={sub.name}
-            className="h-7 w-7 object-contain"
-            onError={(e) => {
-              (e.target as HTMLImageElement).style.display = "none";
-            }}
+            className="h-7 w-7 object-contain absolute inset-0 m-auto"
+            onError={() => setLogoFailed(true)}
           />
-        ) : (
-          <span
-            className="font-bold text-sm"
-            style={{ color: sub.color || "#64748b" }}
-          >
-            {sub.name.slice(0, 2).toUpperCase()}
-          </span>
         )}
       </div>
 

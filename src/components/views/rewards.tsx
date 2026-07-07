@@ -5,9 +5,10 @@ import { motion } from "framer-motion";
 import {
   Trophy, Flame, Gift, Target, Lock, Check, Star, Award, Zap, Sparkles, Loader2,
 } from "@/components/icons";
-import { useProgress, useRewardTiers, useRedeemReward, useCheckIn } from "@/hooks/use-gamification";
+import { useProgress, useRewardTiers, useRedeemReward, useCheckIn, useLeaderboard } from "@/hooks/use-gamification";
 import { useSubscriptions } from "@/hooks/use-subscriptions";
 import { ScratchCard } from "@/components/scratch-card";
+import { SpinWheel } from "@/components/spin-wheel";
 import { SavvyMascot } from "@/components/savvy-mascot";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -22,6 +23,7 @@ export function RewardsView() {
   const { data: progress, isLoading } = useProgress();
   const { data: rewardTiers } = useRewardTiers();
   const { data: subs } = useSubscriptions();
+  const { data: leaderboard } = useLeaderboard();
   const redeem = useRedeemReward();
   const checkIn = useCheckIn();
 
@@ -127,6 +129,59 @@ export function RewardsView() {
           <p className="text-[10px] text-muted-foreground">Badges</p>
         </div>
       </div>
+
+      {/* Daily spin wheel */}
+      <SpinWheel />
+
+      {/* Weekly leaderboard */}
+      {leaderboard && (
+        <div className="glass rounded-2xl p-4">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="font-semibold text-sm flex items-center gap-1.5">
+              <Trophy className="h-4 w-4 text-amber-500" />
+              Weekly Leaderboard
+            </h3>
+            <span className="text-[10px] text-muted-foreground">
+              Resets in {leaderboard.resetsIn}
+            </span>
+          </div>
+          <div className="rounded-xl bg-gradient-to-br from-amber-500/15 to-primary/10 border border-amber-500/20 p-2.5 mb-2">
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Top prize</p>
+            <p className="text-xs font-semibold text-amber-600 dark:text-amber-400">
+              {leaderboard.prize}
+            </p>
+          </div>
+          <div className="space-y-1.5">
+            {leaderboard.entries.slice(0, 7).map((entry) => (
+              <div
+                key={entry.rank}
+                className={`flex items-center gap-2.5 p-2 rounded-lg ${
+                  entry.isCurrentUser ? "bg-primary/10 ring-1 ring-primary/30" : ""
+                }`}
+              >
+                <div className={`h-6 w-6 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 ${
+                  entry.rank === 1 ? "bg-amber-400 text-white"
+                  : entry.rank === 2 ? "bg-slate-300 text-slate-800"
+                  : entry.rank === 3 ? "bg-orange-400 text-white"
+                  : "bg-muted text-muted-foreground"
+                }`}>
+                  {entry.rank}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium truncate">
+                    {entry.name} {entry.isCurrentUser && <span className="text-primary">(you)</span>}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">Level {entry.level}</p>
+                </div>
+                <span className="text-xs font-bold">{entry.points}</span>
+              </div>
+            ))}
+          </div>
+          <p className="text-[11px] text-muted-foreground text-center mt-2">
+            You're ranked <span className="font-bold text-primary">#{leaderboard.myRank}</span> of {leaderboard.totalUsers} — climb to #1 to win!
+          </p>
+        </div>
+      )}
 
       {/* Scratch cards to reveal */}
       {scratchCards.length > 0 && (

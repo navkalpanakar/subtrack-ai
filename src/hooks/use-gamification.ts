@@ -66,6 +66,44 @@ export type RewardTier = {
   affordable: boolean;
 };
 
+export type LinkedAccounts = {
+  linked: Array<{ provider: string; identifier: string }>;
+  google: boolean;
+  microsoft: boolean;
+  apple: boolean;
+  email: boolean;
+  phone: boolean;
+};
+
+export type SpinState = {
+  canSpin: boolean;
+  todayPoints: number;
+  wheel: number[];
+};
+
+export type SpinResult = {
+  spun: boolean;
+  points: number;
+  index?: number;
+  message?: string;
+};
+
+export type LeaderboardEntry = {
+  rank: number;
+  name: string;
+  points: number;
+  level: number;
+  isCurrentUser: boolean;
+};
+
+export type Leaderboard = {
+  entries: LeaderboardEntry[];
+  myRank: number;
+  totalUsers: number;
+  prize: string;
+  resetsIn: string;
+};
+
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, {
     ...init,
@@ -85,6 +123,24 @@ export function useProgress() {
   });
 }
 
+export function useLinkedAccounts() {
+  return useQuery<LinkedAccounts>({
+    queryKey: ["linked-accounts"],
+    queryFn: () => api("/api/account/linked"),
+  });
+}
+
+export function useLinkAccount() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ provider, identifier }: { provider: string; identifier?: string }) =>
+      api("/api/account/link", { method: "POST", body: JSON.stringify({ provider, identifier }) }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["linked-accounts"] });
+    },
+  });
+}
+
 export function useCheckIn() {
   const qc = useQueryClient();
   return useMutation({
@@ -92,9 +148,7 @@ export function useCheckIn() {
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ["progress"] });
       if (data.checkedIn && data.earned) {
-        toast.success(`Checked in! +${data.earned} points 🔥`, {
-          description: `${data.streak}-day streak`,
-        });
+        toast.success(`Checked in! +${data.earned} points 🔥`, { description: `${data.streak}-day streak` });
       } else {
         toast("Already checked in today — come back tomorrow!");
       }
@@ -139,5 +193,37 @@ export function useScratchReward() {
       qc.invalidateQueries({ queryKey: ["progress"] });
     },
     onError: (e: Error) => toast.error(e.message),
+  });
+}
+
+// ─── Games ─────────────────────────────────────────────────────
+export function useSpinState() {
+  return useQuery<SpinState>({
+    queryKey: ["spin-state"],
+    queryFn: () => api("/api/games/spin"),
+  });
+}
+
+export function useSpin() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api<SpinResult>("/api/games/spin", { method: "POST" }),
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ["progress"] });
+      qc.invalidateQueries({ queryKey: ["spin-state"] });
+      if (data.spun) {
+        toast.success(`🎉 You won ${data.points} points!`);
+      } else {
+        toast(data.message || "Already spun today");
+      }
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+}
+
+export function useLeaderboard() {
+  return useQuery<Leaderboard>({
+    queryKey: ["leaderboard"],
+    queryFn: () => api("/api/games/leaderboard"),
   });
 }

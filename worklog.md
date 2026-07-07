@@ -173,3 +173,54 @@ Stage Summary:
 - Price verification prevents users from accidentally saving wrong prices — Savvy checks the web and asks for confirmation when the stated price seems off.
 - Voice input lets users speak their subscription details hands-free.
 - One-tap inbox sync now supports Gmail, Outlook, and Apple Mail (preview mode; real OAuth ready via env vars).
+
+---
+Task ID: 6
+Agent: main
+Task: Consolidate auth on login page (email/phone/Google/Microsoft/Apple/demo), account linking, gamification games (spin wheel + leaderboard), and organization logos for every subscription
+
+Work Log:
+- Auth consolidation on login page:
+  * Login screen redesigned with 3 modes: main menu, email form, phone+OTP form
+  * Main menu: Continue with Email / Continue with Phone / Google / Microsoft / Apple / Try the demo
+  * Email login: passwordless (enter email + optional name → instant account)
+  * Phone login: enter phone → mock OTP (4-digit, shown in preview toast) → verify → account
+  * Google/Microsoft/Apple OAuth buttons auto-enable with env vars (same pattern as before)
+  * Demo kept for testing
+- Account linking:
+  * New LinkedAccount model (userId, provider, identifier) — tracks google/microsoft/apple/email/phone
+  * /api/account/linked (GET) — returns which providers are linked
+  * /api/account/link (POST) — link a provider after OAuth/sync
+  * All login routes (demo-login, email-login, phone-verify) auto-link their provider
+  * Add Subscription email tab: Gmail/Outlook/Apple buttons now show "Linked" badge + green dot when already connected. Syncing auto-links the provider.
+  * User model: email now optional (phone users may not have email), phone field added
+- Gamification games:
+  * SpinResult model (userId, points, date) — one free spin per day
+  * /api/games/spin (GET: canSpin + wheel; POST: weighted-random spin → award points)
+  * SpinWheel component: animated CSS wheel with 8 segments (5/10/15/20/25/50/100/200 pts), weighted probability, pointer, center hub, result display
+  * /api/games/leaderboard (GET): real users + seeded competitors (Priya, Marcus, Aisha, Diego, Yuki, Emma, Liam), weekly reset countdown, top prize = "1 free subscription of your choice (up to $25 value)"
+  * Leaderboard section in Rewards tab: gold/silver/bronze rank badges, current user highlighted, rank shown
+  * Rewards tab now includes: level hero → check-in → stat tiles → SPIN WHEEL → LEADERBOARD → scratch cards → unlock rewards → quests → badges → Savvy encouragement
+- Organization logos:
+  * src/lib/logo.ts: provider→domain map for 80+ providers (Netflix→netflix.com, Spotify→spotify.com, etc.) + logoForProvider() helper using Clearbit
+  * POST /api/subscriptions auto-assigns logo URL when not provided
+  * SubscriptionCard fixed: initials always rendered as base layer with brand color, logo img overlaid on top. If img fails → initials show through. No more empty boxes.
+
+Verification (Agent Browser):
+- Login screen shows all 6 options: Email, Phone, Google, Microsoft, Apple, Demo ✓
+- Phone login: entered +919876543210 → OTP 2855 shown in toast → verified → dashboard loaded ✓
+- Email login: entered testuser@email.com → dashboard loaded ✓
+- Rewards tab: Daily Spin wheel with "Spin now (free)" ✓, spun → won 5 points ✓
+- Weekly Leaderboard: shows 7 competitors + user ranked #12, top prize "free subscription" ✓
+- Add Subscription email tab: Gmail/Outlook/Apple buttons present ✓
+- Synced Gmail → "Linked" badge appeared on Gmail button (green dot + "Linked" text) ✓
+- Outlook/Apple still show unlinked ✓
+- Subscription cards show logos (Clearbit) with initials fallback ✓
+- Zero errors in dev log, lint clean.
+
+Stage Summary:
+- All auth consolidated on login page — users pick their preferred method upfront.
+- Account linking means once you've connected Gmail, it stays connected — no re-auth needed in Add Subscription.
+- Gamification now includes games: daily spin wheel (random points) + weekly leaderboard (top user wins a free subscription). This drives daily return + competitive retention.
+- Every subscription shows the real organization logo (Netflix, Spotify, etc.) with graceful initials fallback.
+- Phone login works with mock OTP (dev preview shows the code). Real SMS needs Twilio wiring in production.

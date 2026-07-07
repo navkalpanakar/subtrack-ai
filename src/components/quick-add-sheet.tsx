@@ -36,6 +36,7 @@ import {
 } from "@/hooks/use-subscriptions";
 import { CATEGORIES, CYCLES, categoryColor } from "@/lib/format";
 import { detectCurrency, setCurrency, currencySymbol, POPULAR_CURRENCIES } from "@/lib/currency";
+import { useLinkedAccounts, useLinkAccount } from "@/hooks/use-gamification";
 
 type Draft = {
   name: string;
@@ -81,6 +82,8 @@ export function QuickAddSheet({
 }) {
   const [mode, setMode] = useState<"ai" | "scan" | "email">("ai");
   const create = useCreateSubscription();
+  const { data: linkedAccounts } = useLinkedAccounts();
+  const linkAccount = useLinkAccount();
   const [currency, setLocalCurrency] = useState("USD");
 
   // Detect currency on mount
@@ -289,6 +292,9 @@ export function QuickAddSheet({
     setEmailParsing(true);
     try {
       const { detected } = await scanInbox(provider);
+      // Mark this provider as linked to the user's account
+      const providerKey = provider === "gmail" ? "google" : provider === "outlook" ? "microsoft" : "apple";
+      await linkAccount.mutateAsync({ provider: providerKey, identifier: `${provider} preview` });
       if (detected.length === 0) {
         toast.error("No subscriptions detected.");
         return;
@@ -311,7 +317,7 @@ export function QuickAddSheet({
         }))
       );
       const labels = { gmail: "Gmail", outlook: "Outlook", apple: "Apple Mail" };
-      toast.success(`Synced ${detected.length} subscription(s) from ${labels[provider]} preview.`);
+      toast.success(`Synced ${detected.length} subscription(s) from ${labels[provider]} — account linked!`);
     } catch {
       toast.error("Inbox sync failed.");
     } finally {
@@ -566,18 +572,21 @@ export function QuickAddSheet({
                   <InboxButton
                     label="Gmail"
                     color="#EA4335"
+                    connected={linkedAccounts?.google}
                     onClick={() => handleInboxSync("gmail")}
                     disabled={emailParsing}
                   />
                   <InboxButton
                     label="Outlook"
                     color="#00A4EF"
+                    connected={linkedAccounts?.microsoft}
                     onClick={() => handleInboxSync("outlook")}
                     disabled={emailParsing}
                   />
                   <InboxButton
                     label="Apple"
                     color="#111111"
+                    connected={linkedAccounts?.apple}
                     onClick={() => handleInboxSync("apple")}
                     disabled={emailParsing}
                   />
@@ -625,16 +634,23 @@ export function QuickAddSheet({
 
 // ─── Inbox provider button ──────────────────────────────────────
 function InboxButton({
-  label, color, onClick, disabled,
+  label, color, onClick, disabled, connected,
 }: {
-  label: string; color: string; onClick: () => void; disabled: boolean;
+  label: string; color: string; onClick: () => void; disabled: boolean; connected?: boolean;
 }) {
   return (
     <button
       onClick={onClick}
       disabled={disabled}
-      className="flex flex-col items-center gap-1.5 py-3 rounded-xl border border-border bg-card hover:bg-accent/50 active:scale-[0.97] transition disabled:opacity-50"
+      className={`flex flex-col items-center gap-1.5 py-3 rounded-xl border transition disabled:opacity-50 relative ${
+        connected
+          ? "border-primary/40 bg-primary/5"
+          : "border-border bg-card hover:bg-accent/50 active:scale-[0.97]"
+      }`}
     >
+      {connected && (
+        <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-primary" />
+      )}
       <div
         className="h-8 w-8 rounded-lg flex items-center justify-center text-white text-xs font-bold"
         style={{ backgroundColor: color }}
@@ -642,6 +658,9 @@ function InboxButton({
         {label[0]}
       </div>
       <span className="text-[11px] font-medium">{label}</span>
+      {connected && (
+        <span className="text-[9px] text-primary font-semibold">Linked</span>
+      )}
     </button>
   );
 }

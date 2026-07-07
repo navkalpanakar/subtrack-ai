@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getUserId } from "@/lib/session";
 import { POINTS, awardPoints, awardBadge, bumpChallenge, ensureUserProgress } from "@/lib/gamification";
+import { logoForProvider } from "@/lib/logo";
 
 export async function GET(req: NextRequest) {
   const userId = await getUserId(req);
@@ -32,7 +33,7 @@ export async function POST(req: NextRequest) {
       nextBillingDate: new Date(body.nextBillingDate || new Date()),
       startDate: body.startDate ? new Date(body.startDate) : null,
       status: body.status || "active",
-      logo: body.logo || null,
+      logo: body.logo || logoForProvider(body.provider || body.name),
       color: body.color || null,
       notes: body.notes || null,
       usageTags: Array.isArray(body.usageTags)
