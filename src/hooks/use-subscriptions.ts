@@ -94,7 +94,7 @@ export function useInsights() {
   });
 }
 
-export async function parseNaturalLanguage(text: string) {
+export async function parseNaturalLanguage(text: string, currency: string) {
   return api<{
     name: string;
     provider: string;
@@ -104,7 +104,34 @@ export async function parseNaturalLanguage(text: string) {
     billingCycle: string | null;
     nextBillingDate: string | null;
     notes?: string;
-  }>("/api/ai/parse", { method: "POST", body: JSON.stringify({ text }) });
+    verification?: {
+      needsVerification: boolean;
+      userAmount: number | null;
+      expectedAmount: number | null;
+      reason: string;
+    } | null;
+  }>("/api/ai/parse", { method: "POST", body: JSON.stringify({ text, currency }) });
+}
+
+export async function transcribeAudio(audio: string) {
+  return api<{ text: string }>("/api/ai/transcribe", {
+    method: "POST",
+    body: JSON.stringify({ audio }),
+  });
+}
+
+export async function scanInbox(provider: "gmail" | "outlook" | "apple") {
+  const url =
+    provider === "gmail"
+      ? "/api/scan/gmail"
+      : provider === "outlook"
+      ? "/api/scan/outlook"
+      : "/api/scan/apple";
+  return api<{
+    connected: boolean;
+    scanSource: string;
+    detected: Array<Record<string, unknown>>;
+  }>(url);
 }
 
 export async function scanReceipt(image: string) {
@@ -119,14 +146,6 @@ export async function scanEmail(content: string) {
     "/api/email/scan",
     { method: "POST", body: JSON.stringify({ content }) }
   );
-}
-
-export async function scanGmail() {
-  return api<{
-    connected: boolean;
-    scanSource: string;
-    detected: Array<Record<string, unknown>>;
-  }>("/api/scan/gmail");
 }
 
 export type Offer = {

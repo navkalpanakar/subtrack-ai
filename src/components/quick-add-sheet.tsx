@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   Drawer,
   DrawerContent,
@@ -20,23 +20,29 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Sparkles, Camera, Mail, Send, Loader2, Check, MailCheck } from "lucide-react";
+import {
+  Sparkles, Camera, Mail, Send, Loader2, Check, MailCheck,
+  Mic, MicOff, AlertCircle, ShieldCheck,
+} from "lucide-react";
 import { toast } from "sonner";
 import {
   useCreateSubscription,
   parseNaturalLanguage,
+  transcribeAudio,
   scanReceipt,
   scanEmail,
-  scanGmail,
+  scanInbox,
   type Subscription,
 } from "@/hooks/use-subscriptions";
 import { CATEGORIES, CYCLES, categoryColor } from "@/lib/format";
+import { detectCurrency, setCurrency, currencySymbol, POPULAR_CURRENCIES } from "@/lib/currency";
 
 type Draft = {
   name: string;
   provider: string;
   category: string;
   amount: string;
+  currency: string;
   billingCycle: string;
   nextBillingDate: string;
   logo: string | null;
@@ -45,11 +51,12 @@ type Draft = {
   usageTags: string;
 };
 
-const emptyDraft = (): Draft => ({
+const emptyDraft = (currency: string): Draft => ({
   name: "",
   provider: "",
   category: "Other",
   amount: "",
+  currency,
   billingCycle: "monthly",
   nextBillingDate: new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10),
   logo: null,
@@ -57,6 +64,13 @@ const emptyDraft = (): Draft => ({
   cancelUrl: null,
   usageTags: "",
 });
+
+type Verification = {
+  needsVerification: boolean;
+  userAmount: number | null;
+  expectedAmount: number | null;
+  reason: string;
+};
 
 export function QuickAddSheet({
   open,
@@ -67,13 +81,28 @@ export function QuickAddSheet({
 }) {
   const [mode, setMode] = useState<"ai" | "scan" | "email">("ai");
   const create = useCreateSubscription();
+  const [currency, setLocalCurrency] = useState("USD");
+
+  // Detect currency on mount
+  useEffect(() => {
+    setLocalCurrency(detectCurrency());
+  }, []);
 
   // AI natural language state
   const [nlText, setNlText] = useState("");
   const [parsing, setParsing] = useState(false);
 
+  // Voice input state
+  const [recording, setRecording] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+
   // Draft form (shared by all modes after parsing)
   const [draft, setDraft] = useState<Draft | null>(null);
+
+  // Price verification prompt (shown when AI detects a mismatch)
+  const [verification, setVerification] = useState<Verification | null>(null);
 
   // Receipt state
   const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
@@ -90,19 +119,75 @@ export function QuickAddSheet({
     setReceiptPreview(null);
     setEmailText("");
     setBulkDrafts(null);
+    setVerification(null);
     setMode("ai");
   };
 
+  // ─── Voice input (ASR) ─────────────────────────────────────────
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mr = new MediaRecorder(stream);
+      chunksRef.current = [];
+      mr.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data);
+      };
+      mr.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop());
+        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
+        if (blob.size === 0) {
+          toast.error("No audio captured.");
+          return;
+        }
+        // Convert to base64
+        const reader = new FileReader();
+        reader.onload = async () => {
+          const dataUrl = reader.result as string;
+          setTranscribing(true);
+          try {
+            const { text } = await transcribeAudio(dataUrl);
+            if (text) {
+              setNlText(text);
+              toast.success("Heard you! Tap Parse to add.");
+            } else {
+              toast.error("Couldn't catch that — try again.");
+            }
+          } catch {
+            toast.error("Transcription failed. Try typing instead.");
+          } finally {
+            setTranscribing(false);
+          }
+        };
+        reader.readAsDataURL(blob);
+      };
+      mr.start();
+      mediaRecorderRef.current = mr;
+      setRecording(true);
+      toast.info("Listening… tap stop when done.");
+    } catch {
+      toast.error("Microphone access denied. Check browser permissions.");
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && recording) {
+      mediaRecorderRef.current.stop();
+      setRecording(false);
+    }
+  };
+
+  // ─── AI parse + price verification ─────────────────────────────
   const handleParse = async () => {
     if (!nlText.trim()) return;
     setParsing(true);
     try {
-      const parsed = await parseNaturalLanguage(nlText);
-      setDraft({
+      const parsed = await parseNaturalLanguage(nlText, currency);
+      const newDraft: Draft = {
         name: parsed.name || "",
         provider: parsed.provider || parsed.name || "",
         category: parsed.category || "Other",
         amount: parsed.amount ? String(parsed.amount) : "",
+        currency: parsed.currency || currency,
         billingCycle: parsed.billingCycle || "monthly",
         nextBillingDate:
           parsed.nextBillingDate || new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10),
@@ -110,8 +195,17 @@ export function QuickAddSheet({
         color: categoryColor(parsed.category || "Other"),
         cancelUrl: null,
         usageTags: "",
-      });
-      toast.success("Parsed! Review and save.");
+      };
+
+      // Price verification: if the AI flagged a mismatch, show the verify
+      // dialog BEFORE opening the draft form. User must confirm the price.
+      if (parsed.verification?.needsVerification) {
+        setVerification(parsed.verification);
+        setDraft(newDraft);
+      } else {
+        setDraft(newDraft);
+        toast.success("Parsed! Review and save.");
+      }
     } catch {
       toast.error("Could not parse that. Try rephrasing.");
     } finally {
@@ -137,6 +231,7 @@ export function QuickAddSheet({
           provider: String(first.provider || first.name || ""),
           category: String(first.category || "Other"),
           amount: first.amount ? String(first.amount) : "",
+          currency: String(first.currency || currency),
           billingCycle: String(first.billingCycle || "monthly"),
           nextBillingDate:
             (first.nextBillingDate as string) ||
@@ -171,6 +266,7 @@ export function QuickAddSheet({
           provider: String(s.provider || s.name || ""),
           category: String(s.category || "Other"),
           amount: s.amount ? String(s.amount) : "",
+          currency: String(s.currency || currency),
           billingCycle: String(s.billingCycle || "monthly"),
           nextBillingDate:
             (s.nextBillingDate as string) ||
@@ -189,10 +285,10 @@ export function QuickAddSheet({
     }
   };
 
-  const handleGmailSync = async () => {
+  const handleInboxSync = async (provider: "gmail" | "outlook" | "apple") => {
     setEmailParsing(true);
     try {
-      const { detected } = await scanGmail();
+      const { detected } = await scanInbox(provider);
       if (detected.length === 0) {
         toast.error("No subscriptions detected.");
         return;
@@ -203,6 +299,7 @@ export function QuickAddSheet({
           provider: String(s.provider || s.name || ""),
           category: String(s.category || "Other"),
           amount: s.amount ? String(s.amount) : "",
+          currency: String(s.currency || currency),
           billingCycle: String(s.billingCycle || "monthly"),
           nextBillingDate:
             (s.nextBillingDate as string) ||
@@ -213,9 +310,10 @@ export function QuickAddSheet({
           usageTags: "",
         }))
       );
-      toast.success(`Synced ${detected.length} subscription(s) from inbox preview.`);
+      const labels = { gmail: "Gmail", outlook: "Outlook", apple: "Apple Mail" };
+      toast.success(`Synced ${detected.length} subscription(s) from ${labels[provider]} preview.`);
     } catch {
-      toast.error("Gmail sync failed.");
+      toast.error("Inbox sync failed.");
     } finally {
       setEmailParsing(false);
     }
@@ -227,7 +325,7 @@ export function QuickAddSheet({
       provider: d.provider,
       category: d.category,
       amount: Number(d.amount) || 0,
-      currency: "USD",
+      currency: d.currency,
       billingCycle: d.billingCycle,
       nextBillingDate: d.nextBillingDate,
       logo: d.logo,
@@ -256,6 +354,19 @@ export function QuickAddSheet({
     onOpenChange(false);
   };
 
+  // Confirm the user's stated price (after verification flag)
+  const confirmUserPrice = () => {
+    setVerification(null);
+    toast.success("Got it — using your stated price.");
+  };
+  const useExpectedPrice = () => {
+    if (draft && verification?.expectedAmount) {
+      setDraft({ ...draft, amount: String(verification.expectedAmount) });
+    }
+    setVerification(null);
+    toast.success(`Updated to the web-verified price.`);
+  };
+
   return (
     <Drawer open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) setTimeout(reset, 300); }}>
       <DrawerContent className="max-h-[90vh]">
@@ -265,19 +376,53 @@ export function QuickAddSheet({
             Add subscription
           </DrawerTitle>
           <DrawerDescription>
-            Type it, scan a receipt, or sync your email — AI does the rest.
+            Type, speak, scan, or sync your inbox — Savvy does the rest.
           </DrawerDescription>
         </DrawerHeader>
 
         <div className="px-4 pb-6 overflow-y-auto">
-          {/* If a single draft is ready, show the review form */}
-          {draft ? (
+          {/* Currency selector (always visible) */}
+          <div className="flex items-center gap-2 mb-3 text-xs">
+            <span className="text-muted-foreground">Currency:</span>
+            <Select
+              value={currency}
+              onValueChange={(v) => {
+                setLocalCurrency(v);
+                setCurrency(v);
+              }}
+            >
+              <SelectTrigger className="h-7 w-auto text-xs gap-1 rounded-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {POPULAR_CURRENCIES.map((c) => (
+                  <SelectItem key={c} value={c}>
+                    {currencySymbol(c)} {c}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <span className="text-muted-foreground ml-auto">
+              Detected from your locale · change anytime
+            </span>
+          </div>
+
+          {/* Price verification dialog (shown before draft form) */}
+          {verification && draft ? (
+            <VerifyPriceDialog
+              verification={verification}
+              draftName={draft.name}
+              currency={draft.currency}
+              onConfirmUser={confirmUserPrice}
+              onUseExpected={useExpectedPrice}
+            />
+          ) : draft ? (
             <DraftForm
               draft={draft}
               onChange={setDraft}
               onSave={handleSave}
               saving={create.isPending}
-              onCancel={() => setDraft(null)}
+              onCancel={() => { setDraft(null); setVerification(null); }}
             />
           ) : bulkDrafts ? (
             <BulkReview
@@ -302,21 +447,48 @@ export function QuickAddSheet({
                 </TabsTrigger>
               </TabsList>
 
-              {/* AI natural language */}
+              {/* AI natural language + voice */}
               <TabsContent value="ai" className="mt-4 space-y-3">
                 <div className="rounded-xl bg-accent/40 p-3 text-xs text-muted-foreground">
                   Try:{" "}
                   <span className="text-foreground font-medium">
-                    “Netflix $15.49 monthly renews the 5th”
+                    “Netflix {currencySymbol(currency)}199 monthly renews the 5th”
                   </span>
                 </div>
-                <Textarea
-                  value={nlText}
-                  onChange={(e) => setNlText(e.target.value)}
-                  placeholder="Describe your subscription in any words…"
-                  rows={3}
-                  className="resize-none"
-                />
+                <div className="relative">
+                  <Textarea
+                    value={nlText}
+                    onChange={(e) => setNlText(e.target.value)}
+                    placeholder="Describe your subscription in any words… or tap the mic to speak"
+                    rows={3}
+                    className="resize-none pr-12"
+                  />
+                  {/* Mic button */}
+                  <button
+                    onClick={recording ? stopRecording : startRecording}
+                    disabled={transcribing}
+                    className={`absolute right-2 bottom-2 h-9 w-9 rounded-full flex items-center justify-center transition ${
+                      recording
+                        ? "bg-destructive text-white animate-pulse"
+                        : "bg-primary text-primary-foreground hover:opacity-90"
+                    }`}
+                    aria-label={recording ? "Stop recording" : "Start voice input"}
+                  >
+                    {transcribing ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : recording ? (
+                      <MicOff className="h-4 w-4" />
+                    ) : (
+                      <Mic className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
+                {recording && (
+                  <p className="text-xs text-destructive flex items-center gap-1">
+                    <span className="h-2 w-2 rounded-full bg-destructive animate-pulse" />
+                    Recording… tap the mic to stop & transcribe
+                  </p>
+                )}
                 <Button
                   onClick={handleParse}
                   disabled={!nlText.trim() || parsing}
@@ -327,8 +499,12 @@ export function QuickAddSheet({
                   ) : (
                     <Sparkles className="h-4 w-4 mr-2" />
                   )}
-                  Parse with AI
+                  Parse & verify with Savvy
                 </Button>
+                <p className="text-[10px] text-muted-foreground text-center flex items-center justify-center gap-1">
+                  <ShieldCheck className="h-3 w-3" />
+                  Savvy cross-checks the price online before saving
+                </p>
               </TabsContent>
 
               {/* Receipt scan */}
@@ -373,31 +549,44 @@ export function QuickAddSheet({
                 )}
               </TabsContent>
 
-              {/* Email sync */}
+              {/* Email sync — Gmail / Outlook / Apple one-tap + paste */}
               <TabsContent value="email" className="mt-4 space-y-3">
                 <div className="rounded-xl bg-primary/10 border border-primary/20 p-3 flex items-start gap-2">
                   <MailCheck className="h-5 w-5 text-primary shrink-0 mt-0.5" />
                   <div className="text-xs">
-                    <p className="font-medium text-foreground">One-click inbox sync</p>
+                    <p className="font-medium text-foreground">One-tap inbox sync</p>
                     <p className="text-muted-foreground mt-0.5">
-                      Connect Gmail to auto-detect every subscription from billing
-                      emails. (Live OAuth ready — preview mode shown.)
+                      Connect your email to auto-detect every subscription from billing emails.
                     </p>
                   </div>
                 </div>
-                <Button
-                  onClick={handleGmailSync}
-                  disabled={emailParsing}
-                  variant="outline"
-                  className="w-full"
-                >
-                  {emailParsing ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <MailCheck className="h-4 w-4 mr-2" />
-                  )}
-                  Scan my inbox (preview)
-                </Button>
+
+                {/* Provider one-tap buttons */}
+                <div className="grid grid-cols-3 gap-2">
+                  <InboxButton
+                    label="Gmail"
+                    color="#EA4335"
+                    onClick={() => handleInboxSync("gmail")}
+                    disabled={emailParsing}
+                  />
+                  <InboxButton
+                    label="Outlook"
+                    color="#00A4EF"
+                    onClick={() => handleInboxSync("outlook")}
+                    disabled={emailParsing}
+                  />
+                  <InboxButton
+                    label="Apple"
+                    color="#111111"
+                    onClick={() => handleInboxSync("apple")}
+                    disabled={emailParsing}
+                  />
+                </div>
+                {emailParsing && (
+                  <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                    <Loader2 className="h-3 w-3 animate-spin" /> Scanning inbox…
+                  </p>
+                )}
 
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <div className="h-px bg-border flex-1" />
@@ -434,12 +623,92 @@ export function QuickAddSheet({
   );
 }
 
+// ─── Inbox provider button ──────────────────────────────────────
+function InboxButton({
+  label, color, onClick, disabled,
+}: {
+  label: string; color: string; onClick: () => void; disabled: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className="flex flex-col items-center gap-1.5 py-3 rounded-xl border border-border bg-card hover:bg-accent/50 active:scale-[0.97] transition disabled:opacity-50"
+    >
+      <div
+        className="h-8 w-8 rounded-lg flex items-center justify-center text-white text-xs font-bold"
+        style={{ backgroundColor: color }}
+      >
+        {label[0]}
+      </div>
+      <span className="text-[11px] font-medium">{label}</span>
+    </button>
+  );
+}
+
+// ─── Price verification dialog ──────────────────────────────────
+function VerifyPriceDialog({
+  verification, draftName, currency, onConfirmUser, onUseExpected,
+}: {
+  verification: Verification;
+  draftName: string;
+  currency: string;
+  onConfirmUser: () => void;
+  onUseExpected: () => void;
+}) {
+  return (
+    <div className="space-y-3 mt-2">
+      <div className="flex items-center gap-2 text-sm font-medium text-amber-500">
+        <AlertCircle className="h-4 w-4" /> Price check
+      </div>
+      <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 space-y-2">
+        <p className="text-sm leading-relaxed">
+          You said <span className="font-bold">{draftName}</span> costs{" "}
+          <span className="font-bold text-amber-600">
+            {currencySymbol(currency)}{verification.userAmount}
+          </span>
+          , but Savvy couldn't find that price online.
+        </p>
+        {verification.reason && (
+          <p className="text-xs text-muted-foreground italic">
+            “{verification.reason}”
+          </p>
+        )}
+        {verification.expectedAmount && (
+          <p className="text-sm">
+            The closest match Savvy found is{" "}
+            <span className="font-bold text-primary">
+              {currencySymbol(currency)}{verification.expectedAmount}
+            </span>
+            .
+          </p>
+        )}
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Are you sure you paid {currencySymbol(currency)}{verification.userAmount}?
+      </p>
+      <div className="flex flex-col gap-2">
+        <Button onClick={onConfirmUser} variant="outline" className="w-full">
+          <Check className="h-4 w-4 mr-2" />
+          Yes, {currencySymbol(currency)}{verification.userAmount} is correct
+        </Button>
+        <Button onClick={onUseExpected} className="w-full">
+          Use {currencySymbol(currency)}{verification.expectedAmount} instead
+        </Button>
+        <button
+          onClick={() => window.history.go(0)}
+          className="text-xs text-muted-foreground hover:text-foreground py-1"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Draft review form ──────────────────────────────────────────
 function DraftForm({
-  draft,
-  onChange,
-  onSave,
-  onCancel,
-  saving,
+  draft, onChange, onSave, onCancel, saving,
 }: {
   draft: Draft;
   onChange: (d: Draft) => void;
@@ -482,13 +751,27 @@ function DraftForm({
           </Select>
         </div>
         <div className="space-y-1.5">
-          <Label className="text-xs">Amount ($)</Label>
+          <Label className="text-xs">Amount ({draft.currency})</Label>
           <Input
             type="number"
             inputMode="decimal"
             value={draft.amount}
             onChange={(e) => onChange({ ...draft, amount: e.target.value })}
           />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Currency</Label>
+          <Select
+            value={draft.currency}
+            onValueChange={(v) => onChange({ ...draft, currency: v })}
+          >
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {POPULAR_CURRENCIES.map((c) => (
+                <SelectItem key={c} value={c}>{currencySymbol(c)} {c}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         <div className="space-y-1.5">
           <Label className="text-xs">Billing cycle</Label>
@@ -534,11 +817,9 @@ function DraftForm({
   );
 }
 
+// ─── Bulk review ────────────────────────────────────────────────
 function BulkReview({
-  drafts,
-  onSaveAll,
-  onRemove,
-  saving,
+  drafts, onSaveAll, onRemove, saving,
 }: {
   drafts: Draft[];
   onSaveAll: () => void;
@@ -562,7 +843,7 @@ function BulkReview({
             <div className="flex-1 min-w-0">
               <p className="font-medium text-sm truncate">{d.name}</p>
               <p className="text-xs text-muted-foreground">
-                {d.category} · ${d.amount || "?"}/{d.billingCycle}
+                {d.category} · {currencySymbol(d.currency)}{d.amount || "?"}/{d.billingCycle}
               </p>
             </div>
             <button

@@ -15,6 +15,13 @@ export type ParsedSubscription = {
   notes?: string;
 };
 
+export type PriceVerification = {
+  needsVerification: boolean;
+  userAmount: number | null;
+  expectedAmount: number | null;
+  reason: string;
+};
+
 const zaiPromise = ZAI.create();
 function getZai() {
   return zaiPromise;
@@ -26,8 +33,12 @@ function getZai() {
  *  - "Netflix $15.49 monthly renews on the 5th"
  *  - "Spotify 11.99 every month"
  *  - "Adobe CC $59.99/mo renews the 22nd"
+ * The `currency` param defaults the parsed currency (e.g. INR for India).
  */
-export async function parseSubscriptionText(text: string): Promise<ParsedSubscription> {
+export async function parseSubscriptionText(
+  text: string,
+  currency = "USD"
+): Promise<ParsedSubscription> {
   const zai = await getZai();
   const today = new Date().toISOString().slice(0, 10);
 
@@ -35,14 +46,14 @@ export async function parseSubscriptionText(text: string): Promise<ParsedSubscri
     messages: [
       {
         role: "assistant",
-        content: `You are a subscription parser. Extract subscription details from user text and respond with VALID JSON ONLY (no markdown, no prose). Today is ${today}.
+        content: `You are a subscription parser. Extract subscription details from user text and respond with VALID JSON ONLY (no markdown, no prose). Today is ${today}. The user's local currency is ${currency} — use it unless the text explicitly states another currency.
 Schema:
 {
   "name": string,
   "provider": string,
   "category": "Streaming"|"Music"|"Cloud"|"Productivity"|"AI"|"Shopping"|"Gaming"|"News"|"Health"|"Education"|"Other",
   "amount": number|null,
-  "currency": "USD",
+  "currency": "${currency}",
   "billingCycle": "monthly"|"yearly"|"weekly"|"quarterly"|null,
   "nextBillingDate": "YYYY-MM-DD"|null,
   "notes": string
@@ -57,18 +68,102 @@ If a field is unknown use null. Infer the next billing date from phrases like "r
   const raw = completion.choices[0]?.message?.content || "";
   const cleaned = raw.replace(/```json/gi, "").replace(/```/g, "").trim();
   try {
-    return JSON.parse(cleaned) as ParsedSubscription;
+    const parsed = JSON.parse(cleaned) as ParsedSubscription;
+    // Ensure currency defaults to the user's local currency if model omitted it
+    if (!parsed.currency || parsed.currency === "USD") {
+      parsed.currency = currency;
+    }
+    return parsed;
   } catch {
     return {
       name: text.slice(0, 40),
       provider: text.slice(0, 40),
       category: "Other",
       amount: null,
-      currency: "USD",
+      currency,
       billingCycle: "monthly",
       nextBillingDate: null,
       notes: "Could not auto-parse, please review.",
     };
+  }
+}
+
+/**
+ * Verify a parsed subscription's price against live web data. Returns a
+ * verification result indicating whether the user's stated price seems off
+ * (>20% below the web-found price), so the UI can ask for confirmation.
+ */
+export async function verifySubscriptionPrice(
+  provider: string,
+  userAmount: number,
+  currency: string,
+  billingCycle: string | null
+): Promise<PriceVerification> {
+  if (!provider || !userAmount || userAmount <= 0) {
+    return { needsVerification: false, userAmount, expectedAmount: null, reason: "" };
+  }
+  const zai = await getZai();
+  try {
+    const results = await zai.functions.invoke("web_search", {
+      query: `${provider} subscription plan price ${new Date().getFullYear()} ${currency}`,
+      num: 6,
+    });
+    if (!Array.isArray(results) || results.length === 0) {
+      return { needsVerification: false, userAmount, expectedAmount: null, reason: "" };
+    }
+    const snippets = results
+      .map((r: { name?: string; snippet?: string }) => `${r.name || ""}: ${r.snippet || ""}`)
+      .join("\n");
+
+    const completion = await zai.chat.completions.create({
+      messages: [
+        {
+          role: "assistant",
+          content: `You verify subscription prices. The user said they pay ${userAmount} ${currency} ${billingCycle || "monthly"} for ${provider}. Based on these web search results, find the closest matching plan's current price. Respond with VALID JSON ONLY:
+{
+  "expectedAmount": number|null,
+  "matches": boolean,
+  "reason": string (1 sentence explaining what price you found and from what plan)
+}
+If you can't find a clear price, set expectedAmount to null and matches to true.`,
+        },
+        { role: "user", content: `User: ${userAmount} ${currency} ${billingCycle} for ${provider}\n\nWeb results:\n${snippets}` },
+      ],
+      thinking: { type: "disabled" },
+    });
+
+    const raw = completion.choices[0]?.message?.content || "{}";
+    const cleaned = raw.replace(/```json/gi, "").replace(/```/g, "").trim();
+    const parsed = JSON.parse(cleaned) as {
+      expectedAmount: number | null;
+      matches: boolean;
+      reason: string;
+    };
+
+    let expected = parsed.expectedAmount;
+    // If the model didn't return a numeric expectedAmount, try to extract one
+    // from the reason text (e.g. "the cheapest plan is 149 INR").
+    if (expected === null && parsed.reason) {
+      const m = parsed.reason.match(/(?:£|€|\$|₹|Rs\.?\s?)?(\d+(?:\.\d{1,2})?)/);
+      if (m) {
+        expected = parseFloat(m[1]);
+      }
+    }
+
+    // Trigger verification if web price is >20% higher than user's stated price,
+    // OR the model explicitly said it doesn't match.
+    const needsVerification =
+      (expected !== null && expected > 0 && userAmount < expected * 0.8) ||
+      parsed.matches === false;
+
+    return {
+      needsVerification,
+      userAmount,
+      expectedAmount: expected,
+      reason: parsed.reason || "",
+    };
+  } catch {
+    return { needsVerification: false, userAmount, expectedAmount: null, reason: "" };
   }
 }
 

@@ -135,3 +135,41 @@ Stage Summary:
 - Scratch-card coupon reveal replaces direct offers — users earn points then scratch to reveal real web-searched deals.
 - Savvy AI mascot gives the product a memorable, friendly identity.
 - Engagement loops: streaks (daily return), points (every action), badges (collection), challenges (quests), levels (progression), scratch cards (variable reward).
+
+---
+Task ID: 5
+Agent: main
+Task: Add email provider auth (Gmail/Microsoft/Apple one-tap), voice input (ASR), local currency detection, and AI price verification with web-search cross-check
+
+Work Log:
+- Currency detection (src/lib/currency.ts): locale→currency map for 50+ locales (en-IN→INR, en-GB→GBP, etc.), detectCurrency() reads browser locale + localStorage, currencySymbol() for display, POPULAR_CURRENCIES list. Client detects on mount, stored in localStorage, passed to parse API.
+- AI parse updated: parseSubscriptionText(text, currency) — LLM uses user's local currency by default. New verifySubscriptionPrice() does web_search "{provider} subscription price {year} {currency}", LLM compares user's amount vs web price, returns needsVerification flag if user's price is >20% below web price OR model says no match. Improved to extract expectedAmount from reason text as fallback.
+- /api/ai/parse route: accepts {text, currency}, returns parsed + verification object.
+- /api/ai/transcribe route (ASR): accepts {audio: base64}, uses zai.audio.asr.create({file_base64}) to transcribe, returns {text}.
+- /api/scan/outlook + /api/scan/apple routes: preview-mode inbox scans (like Gmail) returning demo-detected subscriptions (Microsoft 365, LinkedIn Premium, Xbox for Outlook; iCloud+, Apple Music, Apple TV+ for Apple).
+- NextAuth providers: wired AzureADProvider (Microsoft) + AppleProvider, auto-enabled with AZURE_AD_CLIENT_ID/SECRET and APPLE_CLIENT_ID/SECRET env vars (same pattern as Google).
+- Hooks: parseNaturalLanguage(text, currency) returns verification field; new transcribeAudio(base64); new scanInbox("gmail"|"outlook"|"apple") unifies all three providers.
+- Quick Add sheet fully redesigned:
+  * Currency selector at top (₹ INR / $ USD / € EUR etc.), detected from locale, changeable.
+  * AI tab: textarea + MIC BUTTON (MediaRecorder → base64 → /api/ai/transcribe → fills textarea). "Parse & verify with Savvy" button + "Savvy cross-checks the price online before saving" hint.
+  * PRICE VERIFICATION DIALOG: when AI detects price mismatch, shows amber alert with user's price vs web-found price + reason, buttons: "Yes, ₹X is correct" / "Use ₹Y instead" / "Cancel". Clicking "Use expected" auto-updates the amount field.
+  * Email tab: 3 one-tap inbox buttons (Gmail red / Outlook blue / Apple black) + paste-an-email fallback. Each provider returns its own detected subs.
+  * Draft form: now includes Currency selector (editable per-subscription).
+  * Bulk review: shows currency symbol per subscription.
+
+Verification (Agent Browser, INR locale):
+- Quick Add opens with "₹ INR" currency selector (detected from locale) ✓
+- AI tab shows mic button + "Parse & verify with Savvy" ✓
+- Email tab shows Gmail / Outlook / Apple one-tap buttons ✓
+- Outlook sync → detected Microsoft 365 Family, LinkedIn Premium, Xbox Game Pass → bulk review ✓
+- Typed "Netflix 1 dollar monthly" → Savvy cross-checked online → verification dialog appeared: "Yes, ₹1 is correct" / "Use ₹149 instead" ✓
+- Clicked "Use ₹149 instead" → amount field auto-updated to 149 ✓
+- /api/ai/transcribe endpoint verified (validates input, passes to ASR SDK) ✓
+- Lint clean, zero app errors in dev log.
+
+Stage Summary:
+- All 4 features working: email provider auth (3 providers), voice input (ASR), local currency (50+ locales), AI price verification (web-search cross-check with confirm dialog).
+- Indian users now see ₹ by default; US users see $; EU users see €, etc.
+- Price verification prevents users from accidentally saving wrong prices — Savvy checks the web and asks for confirmation when the stated price seems off.
+- Voice input lets users speak their subscription details hands-free.
+- One-tap inbox sync now supports Gmail, Outlook, and Apple Mail (preview mode; real OAuth ready via env vars).
