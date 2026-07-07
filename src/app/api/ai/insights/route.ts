@@ -3,8 +3,8 @@ import { db } from "@/lib/db";
 import { getUserId } from "@/lib/session";
 import { generateInsights } from "@/lib/ai";
 
-export async function GET() {
-  const userId = await getUserId();
+export async function GET(req: NextRequest) {
+  const userId = await getUserId(req);
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const subs = await db.subscription.findMany({

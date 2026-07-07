@@ -1,13 +1,13 @@
 "use client";
 
-import { useSession } from "next-auth/react";
+import { useAuth } from "@/hooks/use-auth";
 import { LoginScreen } from "./login-screen";
 import { AppShell } from "./app-shell";
 
 export function RootGate() {
-  const { data: session, status } = useSession();
+  const { user, loading } = useAuth();
 
-  if (status === "loading") {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="h-8 w-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
@@ -15,6 +15,6 @@ export function RootGate() {
     );
   }
 
-  if (!session) return <LoginScreen />;
+  if (!user) return <LoginScreen />;
   return <AppShell />;
 }

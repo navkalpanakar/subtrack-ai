@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getUserId } from "@/lib/session";
 
 // NOTE: Real Gmail sync requires Google OAuth with gmail.readonly scope +
@@ -6,8 +6,8 @@ import { getUserId } from "@/lib/session";
 // OAuth credentials. For first-run preview we return a realistic set of
 // subscriptions that the LLM "detected" from a mock inbox scan, so the
 // one-click sync UX is fully exercisable today.
-export async function GET() {
-  const userId = await getUserId();
+export async function GET(req: NextRequest) {
+  const userId = await getUserId(req);
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const today = new Date();

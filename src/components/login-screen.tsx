@@ -4,8 +4,10 @@ import { signIn } from "next-auth/react";
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { Sparkles, ShieldCheck, Zap, TrendingDown } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
 
 export function LoginScreen() {
+  const { signInDemo } = useAuth();
   const [loading, setLoading] = useState<null | "google" | "guest">(null);
 
   const handleGoogle = () => {
@@ -15,18 +17,12 @@ export function LoginScreen() {
 
   const handleGuest = async () => {
     setLoading("guest");
-    // Use redirect:false so we control navigation through the proxy
-    // (avoids absolute-URL redirects to the internal localhost:3000).
-    const res = await signIn("credentials", {
-      email: "guest@subpilot.app",
-      name: "Guest User",
-      redirect: false,
-    });
-    if (res?.error) {
+    try {
+      // Token-based login: stores token in localStorage, no cookies.
+      // Works inside cross-origin preview iframes.
+      await signInDemo();
+    } catch {
       setLoading(null);
-    } else {
-      // Hard reload to re-fetch session through the gateway.
-      window.location.href = "/";
     }
   };
 

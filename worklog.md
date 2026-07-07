@@ -61,3 +61,38 @@ Work Log:
 Stage Summary:
 - Sign-in crash fixed. The full golden path (login → dashboard → AI quick-add → insights → offers) now works through the preview gateway.
 - The `[next-auth][warn][NEXTAUTH_URL]` warning may still appear in logs but is functionally harmless with trustHost enabled.
+
+---
+Task ID: 3
+Agent: main
+Task: Fix login loop — session not persisting in preview iframe (third-party cookie blocking)
+
+Work Log:
+- Diagnosed via user's screen recording (extracted 7 frames with ffmpeg, analyzed with VLM): sequence was login → tap demo → spinner → back to login, repeating. Never reached dashboard.
+- Dev log confirmed: POST /api/auth/callback/credentials 200 (login ok, cookie SET) → GET /api/auth/session returns null (cookie NOT sent back) → loop. Repeated 4x then redirected to signin.
+- Root cause: preview panel renders the app in a CROSS-ORIGIN iframe. NextAuth's session cookie is SameSite=Lax by default, which browsers block in cross-site iframes (third-party cookie blocking). Cookie gets set but immediately dropped, so every subsequent request is unauthenticated.
+- Fix: implemented a TOKEN-BASED session that bypasses cookies entirely:
+  * src/lib/token-store.ts — server-side in-memory Map (token → userId), 7-day TTL, survives hot reloads.
+  * POST /api/auth/demo-login — creates/gets user + seeds demo subs, issues token, returns {token, user}.
+  * GET /api/auth/me — validates token from x-subpilot-token header, returns user.
+  * POST /api/auth/logout — revokes token.
+  * src/lib/session.ts getUserId(req) — checks header token first, falls back to NextAuth session (Google OAuth still works in production).
+  * All 10 API routes updated to pass `req` to getUserId().
+  * src/hooks/use-auth.tsx — AuthProvider with global fetch wrapper that injects x-subpilot-token header on EVERY request from localStorage. signInDemo/signOut manage the token. useAuth() hook.
+  * RootGate, LoginScreen, AppShell rewritten to use useAuth() instead of useSession().
+  * Kept NextAuth for Google OAuth (production path with real credentials); only the demo flow uses tokens.
+
+Verification (Agent Browser, cleared cookies + localStorage):
+- Fresh login screen ✓
+- Tapped "Try the demo" → dashboard loaded with seeded subs (Notion, Netflix, ChatGPT Plus, Spotify...) ✓
+- localStorage.getItem('subpilot_token') = "TOKEN SET" ✓
+- Full page reload → dashboard PERSISTS (no bounce to login) ✓ — this was the failing case before
+- AI quick-add "Hulu 17.99 monthly renews the 14th" → parsed + saved ✓
+- AI Insights tab → 5 contextual insights generated (Streaming Overlap, Adobe Cost, Music/Video Duplication...) ✓
+- Offers tab → Hulu appears in provider list ✓
+- Dev log clean: POST /api/auth/demo-login 200 → GET /api/auth/me 200 → GET /api/subscriptions 200, no loop.
+
+Stage Summary:
+- Login loop FIXED. The app now works inside the cross-origin preview iframe.
+- Token session is robust against any cookie/SameSite/iframe/proxy combination.
+- Google OAuth still available for production via NextAuth (cookie-based, works on same-origin deployment).

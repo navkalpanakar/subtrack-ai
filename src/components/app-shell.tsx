@@ -3,7 +3,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { Home, ListChecks, Lightbulb, Tag, Plus, LogOut, Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
-import { signOut, useSession } from "next-auth/react";
+import { useAuth } from "@/hooks/use-auth";
 import { useUI, type Tab } from "@/hooks/use-ui";
 import { DashboardView } from "./views/dashboard";
 import { SubscriptionsView } from "./views/subscriptions";
@@ -23,7 +23,7 @@ const TABS: { id: Tab; label: string; icon: typeof Home }[] = [
 export function AppShell() {
   const { tab, setTab, quickAddOpen, setQuickAddOpen } = useUI();
   const { theme, setTheme } = useTheme();
-  const { data: session } = useSession();
+  const { user, signOut: tokenSignOut } = useAuth();
 
   return (
     <div className="relative min-h-screen flex flex-col bg-background safe-top">
@@ -51,14 +51,16 @@ export function AppShell() {
               variant="ghost"
               size="icon"
               className="h-9 w-9"
-              onClick={() => signOut({ callbackUrl: "/" })}
+              onClick={async () => {
+                await tokenSignOut();
+              }}
               aria-label="Sign out"
             >
               <LogOut className="h-4 w-4" />
             </Button>
             <Avatar className="h-8 w-8 ml-1">
               <AvatarFallback className="bg-primary/15 text-primary text-xs font-semibold">
-                {session?.user?.name?.[0]?.toUpperCase() || "G"}
+                {user?.name?.[0]?.toUpperCase() || "G"}
               </AvatarFallback>
             </Avatar>
           </div>

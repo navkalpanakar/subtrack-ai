@@ -3,7 +3,7 @@ import { getUserId } from "@/lib/session";
 import { parseEmailForSubscriptions } from "@/lib/ai";
 
 export async function POST(req: NextRequest) {
-  const userId = await getUserId();
+  const userId = await getUserId(req);
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { content } = await req.json();
