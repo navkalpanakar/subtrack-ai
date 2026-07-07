@@ -282,3 +282,38 @@ Stage Summary:
 - Phone moved to profile settings (not on login page).
 - Dashboard hero is more attractive with animated gradient + sparkline + savings chip.
 - Logos fixed — DuckDuckGo icons render real brand logos with initials fallback.
+
+---
+Task ID: 8
+Agent: main
+Task: Fix spin wheel pointer/segment mismatch, redesign wheel with SVG arcs, move Profile to top-right avatar tap, revert bottom nav to 4 tabs + FAB, add Delete Account with email OTP verification
+
+Work Log:
+- Spin wheel rebuilt with SVG arcs (replacing broken clip-path approach):
+  * arcPath() generates proper SVG wedge paths using arc math (cos/sin)
+  * Each segment is a filled <path> with white borders, number rendered as <text> at 65% radius
+  * Fixed rotation math: target = 360*5 - (index*seg + seg/2) so the winning segment's CENTER lands under the top pointer
+  * onAnimationComplete fires the result + toast only after the 3.5s animation finishes
+  * Verified with VLM: pointer points at "10" segment, result says "+10 points!" — match confirmed
+- Bottom nav reverted to 4 tabs (Home/Subs/AI/Rewards) + center FAB. Removed "You" tab.
+- Profile now opened by tapping the top-right avatar (the "B" letter). Avatar gets a ring-2 ring-primary highlight when Profile is active.
+- Removed Sign out button from header (now in Profile only).
+- Delete Account feature with email OTP verification:
+  * /api/account/delete-send: issues OTP, returns devOtp + email in preview
+  * /api/account/delete-verify: verifies OTP, cascade-deletes user + all related data (subscriptions, progress, challenges, rewards, badges, linkedAccounts, referrals, spinResults), revokes token
+  * Profile UI: "Delete account" text button → confirm dialog (destructive warning) → "Send code" → OTP input with preview → "Delete forever" → account deleted, redirected to login
+  * Three states: null (just the button), "confirm" (warning + send code), "otp" (enter code + delete)
+
+Verification (Agent Browser):
+- Spin wheel: fresh user spun → pointer landed on "10" segment, result showed "+10 points!" (VLM-confirmed match) ✓
+- Bottom nav: 4 tabs (Home/Subs/AI/Rewards) + FAB, no "You" tab ✓
+- Avatar tap → Profile page opens, avatar shows ring when active ✓
+- Profile: Sign out + Delete account buttons present ✓
+- Delete account: clicked → confirm dialog → Send code → got code 9817 → entered → Delete forever → account deleted → returned to login screen ✓
+- Zero errors in dev log, lint clean.
+
+Stage Summary:
+- Spin wheel pointer now correctly lands on the winning segment (SVG arcs + fixed rotation math).
+- Profile moved to top-right avatar tap — cleaner bottom nav (4 tabs + FAB).
+- Delete account requires email OTP verification before permanently deleting all data.
+- All flows verified end-to-end.

@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { Home, ListChecks, Lightbulb, Gift, User, Plus, LogOut, Moon, Sun } from "lucide-react";
+import { Home, ListChecks, Lightbulb, Gift, Plus, Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useAuth } from "@/hooks/use-auth";
 import { useUI, type Tab } from "@/hooks/use-ui";
@@ -14,18 +14,18 @@ import { QuickAddSheet } from "./quick-add-sheet";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
+// Profile is reached via the top-right avatar tap, not the bottom nav.
 const TABS: { id: Tab; label: string; icon: typeof Home }[] = [
   { id: "home", label: "Home", icon: Home },
   { id: "subs", label: "Subs", icon: ListChecks },
   { id: "insights", label: "AI", icon: Lightbulb },
   { id: "rewards", label: "Rewards", icon: Gift },
-  { id: "profile", label: "You", icon: User },
 ];
 
 export function AppShell() {
   const { tab, setTab, quickAddOpen, setQuickAddOpen } = useUI();
   const { theme, setTheme } = useTheme();
-  const { user, signOut: tokenSignOut } = useAuth();
+  const { user } = useAuth();
 
   return (
     <div className="relative min-h-screen flex flex-col bg-background safe-top">
@@ -49,22 +49,20 @@ export function AppShell() {
               <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
               <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
             </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-9 w-9"
-              onClick={async () => {
-                await tokenSignOut();
-              }}
-              aria-label="Sign out"
+            {/* Avatar — tap to open Profile */}
+            <button
+              onClick={() => setTab("profile")}
+              aria-label="Open profile"
+              className={`h-9 w-9 rounded-full ml-1 flex items-center justify-center transition ${
+                tab === "profile" ? "ring-2 ring-primary" : ""
+              }`}
             >
-              <LogOut className="h-4 w-4" />
-            </Button>
-            <Avatar className="h-8 w-8 ml-1">
-              <AvatarFallback className="bg-primary/15 text-primary text-xs font-semibold">
-                {user?.name?.[0]?.toUpperCase() || "G"}
-              </AvatarFallback>
-            </Avatar>
+              <Avatar className="h-8 w-8">
+                <AvatarFallback className="bg-primary/15 text-primary text-xs font-semibold">
+                  {user?.name?.[0]?.toUpperCase() || "G"}
+                </AvatarFallback>
+              </Avatar>
+            </button>
           </div>
         </div>
       </header>
@@ -91,7 +89,7 @@ export function AppShell() {
       {/* Bottom navigation with center FAB */}
       <nav className="fixed bottom-0 inset-x-0 z-40 safe-bottom">
         <div className="mx-auto max-w-md px-4 pb-3">
-          <div className="glass rounded-2xl shadow-lg shadow-black/5 px-1 h-16 flex items-center justify-between relative">
+          <div className="glass rounded-2xl shadow-lg shadow-black/5 px-2 h-16 flex items-center justify-between relative">
             {TABS.slice(0, 2).map((t) => (
               <NavButton key={t.id} tab={t} active={tab === t.id} onClick={() => setTab(t.id)} />
             ))}

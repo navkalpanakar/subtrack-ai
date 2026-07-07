@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   User, Mail, Phone, LogOut, Check, Loader2, Link2, Share2, Copy, Gift,
+  Trash2, AlertTriangle,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useLinkedAccounts, useReferralStatus, useShareReferral } from "@/hooks/use-gamification";
@@ -43,6 +44,12 @@ export function ProfileView() {
   const [emailOtp, setEmailOtp] = useState("");
   const [devEmailOtp, setDevEmailOtp] = useState<string | null>(null);
   const [emailSaving, setEmailSaving] = useState(false);
+
+  // Delete account flow (requires email OTP)
+  const [deleteMode, setDeleteMode] = useState<null | "confirm" | "otp">(null);
+  const [deleteOtp, setDeleteOtp] = useState("");
+  const [devDeleteOtp, setDevDeleteOtp] = useState<string | null>(null);
+  const [deleteSaving, setDeleteSaving] = useState(false);
 
   useEffect(() => {
     fetch("/api/account/profile", { headers: { "Content-Type": "application/json" } })
@@ -143,6 +150,52 @@ export function ProfileView() {
       toast.error("Could not verify");
     } finally {
       setEmailSaving(false);
+    }
+  };
+
+  const sendDeleteOtp = async () => {
+    setDeleteSaving(true);
+    try {
+      const res = await fetch("/api/account/delete-send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const data = await res.json();
+      if (data.error) {
+        toast.error(data.error);
+      } else {
+        setDevDeleteOtp(data.devOtp);
+        setDeleteMode("otp");
+        toast.success(`Deletion code sent to ${data.email}. Preview: ${data.devOtp}`);
+      }
+    } catch {
+      toast.error("Could not send code");
+    } finally {
+      setDeleteSaving(false);
+    }
+  };
+
+  const confirmDelete = async () => {
+    setDeleteSaving(true);
+    try {
+      const res = await fetch("/api/account/delete-verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ otp: deleteOtp }),
+      });
+      const data = await res.json();
+      if (data.error) {
+        toast.error(data.error);
+        setDeleteSaving(false);
+      } else {
+        toast.success("Account deleted");
+        // sign out locally
+        localStorage.removeItem("subpilot_token");
+        window.location.href = "/";
+      }
+    } catch {
+      toast.error("Could not delete account");
+      setDeleteSaving(false);
     }
   };
 
@@ -375,6 +428,83 @@ export function ProfileView() {
         <LogOut className="h-4 w-4 mr-2" />
         Sign out
       </Button>
+
+      {/* Delete account — requires email OTP verification */}
+      {deleteMode === null ? (
+        <button
+          onClick={() => setDeleteMode("confirm")}
+          className="w-full text-xs text-muted-foreground hover:text-destructive transition py-2 flex items-center justify-center gap-1.5"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+          Delete account
+        </button>
+      ) : deleteMode === "confirm" ? (
+        <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-4 space-y-3">
+          <div className="flex items-center gap-2 text-destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <h3 className="font-semibold text-sm">Delete account?</h3>
+          </div>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            This permanently deletes your account, all subscriptions, points, rewards, and history.
+            <strong className="text-foreground"> This cannot be undone.</strong> We'll send a
+            verification code to your email to confirm.
+          </p>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" className="flex-1" onClick={() => setDeleteMode(null)}>
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              className="flex-1"
+              onClick={sendDeleteOtp}
+              disabled={deleteSaving}
+            >
+              {deleteSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5 mr-1" />}
+              Send code
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-4 space-y-3">
+          <div className="flex items-center gap-2 text-destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <h3 className="font-semibold text-sm">Enter deletion code</h3>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Enter the code sent to your email to permanently delete your account.
+          </p>
+          {devDeleteOtp && (
+            <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-2 text-center">
+              <p className="text-[10px] text-amber-600 dark:text-amber-400 uppercase">Preview code</p>
+              <p className="text-lg font-bold tracking-[0.3em] text-amber-600 dark:text-amber-400">{devDeleteOtp}</p>
+            </div>
+          )}
+          <Input
+            type="text"
+            inputMode="numeric"
+            placeholder="••••"
+            value={deleteOtp}
+            onChange={(e) => setDeleteOtp(e.target.value.replace(/\D/g, "").slice(0, 4))}
+            className="h-10 text-center text-xl tracking-[0.3em]"
+          />
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" className="flex-1" onClick={() => setDeleteMode("confirm")}>
+              Back
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              className="flex-1"
+              onClick={confirmDelete}
+              disabled={deleteSaving || deleteOtp.length < 4}
+            >
+              {deleteSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5 mr-1" />}
+              Delete forever
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
