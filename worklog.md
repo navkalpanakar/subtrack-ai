@@ -45,3 +45,19 @@ Stage Summary:
 - Google OAuth works the moment GOOGLE_CLIENT_ID/SECRET env vars are added.
 - Real Gmail sync requires adding gmail.readonly scope to the Google provider; preview mode returns demo-detected subs so the UX flow is testable now.
 - Play Store AAB packaging is the next step (Bubblewrap TWA wrap of the PWA).
+
+---
+Task ID: 2
+Agent: main
+Task: Fix "localhost refused to connect" crash after tapping demo sign-in
+
+Work Log:
+- Diagnosed via user screenshot (white "localhost refused to connect" page) + dev log showing `[next-auth][warn][NEXTAUTH_URL]` and redirect to `http://localhost:3000/`.
+- Root cause: NextAuth behind the Caddy gateway proxy auto-detected the internal host (localhost:3000) instead of the public preview host. After the credentials callback succeeded, NextAuth redirected the browser to the unreachable internal URL → connection refused.
+- Fix 1 (src/lib/auth.ts): added `trustHost: true` to authOptions so NextAuth uses the proxy's X-Forwarded-Host / X-Forwarded-Proto headers (set by Caddy) to build correct callback URLs and set the session cookie for the right domain.
+- Fix 2 (src/components/login-screen.tsx): changed guest signIn to use `redirect: false` + manual `window.location.href = "/"` so the client controls navigation through the gateway instead of following an absolute-URL redirect.
+- Verified with Agent Browser: cleared cookies → fresh login → tapped "Try the demo" → dashboard loaded correctly, URL stayed on gateway (localhost:81), session persisted across reload, /api/subscriptions returned seeded data.
+
+Stage Summary:
+- Sign-in crash fixed. The full golden path (login → dashboard → AI quick-add → insights → offers) now works through the preview gateway.
+- The `[next-auth][warn][NEXTAUTH_URL]` warning may still appear in logs but is functionally harmless with trustHost enabled.

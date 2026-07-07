@@ -13,13 +13,21 @@ export function LoginScreen() {
     signIn("google", { callbackUrl: "/" });
   };
 
-  const handleGuest = () => {
+  const handleGuest = async () => {
     setLoading("guest");
-    signIn("credentials", {
+    // Use redirect:false so we control navigation through the proxy
+    // (avoids absolute-URL redirects to the internal localhost:3000).
+    const res = await signIn("credentials", {
       email: "guest@subpilot.app",
       name: "Guest User",
-      callbackUrl: "/",
+      redirect: false,
     });
+    if (res?.error) {
+      setLoading(null);
+    } else {
+      // Hard reload to re-fetch session through the gateway.
+      window.location.href = "/";
+    }
   };
 
   return (

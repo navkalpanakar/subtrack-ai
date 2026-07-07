@@ -41,6 +41,11 @@ if (googleClientId && googleClientSecret) {
 
 export const authOptions: NextAuthOptions = {
   session: { strategy: "jwt" },
+  // Trust the reverse-proxy (Caddy gateway) forwarded headers so NextAuth
+  // builds callback URLs from the public-facing host instead of the
+  // internal localhost:3000. Fixes "localhost refused to connect" after
+  // sign-in when accessed through the preview gateway.
+  trustHost: true,
   providers,
   callbacks: {
     async signIn({ user }) {
