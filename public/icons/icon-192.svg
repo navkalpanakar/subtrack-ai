@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#10b981"/>
+      <stop offset="1" stop-color="#059669"/>
+    </linearGradient>
+  </defs>
+  <rect width="192" height="192" rx="44" fill="url(#g)"/>
+  <path d="M96 40c-22 0-40 18-40 40 0 14 7 26 18 33l-6 33 28-16 28 16-6-33c11-7 18-19 18-33 0-22-18-40-40-40z" fill="none" stroke="#fff" stroke-width="7" stroke-linejoin="round"/>
+  <circle cx="96" cy="80" r="14" fill="#fff"/>
+  <text x="96" y="150" font-family="system-ui,sans-serif" font-size="26" font-weight="800" fill="#fff" text-anchor="middle">SubPilot</text>
+</svg>

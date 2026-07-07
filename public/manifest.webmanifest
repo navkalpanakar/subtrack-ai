@@ -1,0 +1,25 @@
+{
+  "name": "SubPilot — AI Subscription Tracker",
+  "short_name": "SubPilot",
+  "description": "Track subscriptions, catch price hikes, find offers, and save money with AI.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f1a1c",
+  "theme_color": "#10b981",
+  "orientation": "portrait",
+  "categories": ["finance", "productivity", "lifestyle"],
+  "icons": [
+    {
+      "src": "/icons/icon-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
