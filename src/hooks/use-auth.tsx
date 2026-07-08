@@ -30,6 +30,7 @@ type AuthState = {
   loading: boolean;
   signInDemo: () => Promise<void>;
   signInEmail: (email: string, name?: string) => Promise<void>;
+  signInOAuthPreview: (provider: "google" | "microsoft" | "apple") => Promise<{ token?: string; error?: string }>;
   sendEmailOtp: (email: string) => Promise<{ sent: boolean; devOtp?: string; error?: string }>;
   verifyEmailOtp: (email: string, otp: string, name?: string) => Promise<{ token?: string; error?: string }>;
   sendPhoneOtp: (phone: string) => Promise<{ sent: boolean; devOtp?: string }>;
@@ -169,6 +170,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(false);
   }, []);
 
+  const signInOAuthPreview = useCallback(async (provider: "google" | "microsoft" | "apple") => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/auth/oauth-preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider }),
+      });
+      const data: { token: string; user: SessionUser; error?: string } = await res.json();
+      if (data.token) {
+        localStorage.setItem(TOKEN_KEY, data.token);
+        setUser(data.user);
+      }
+      setLoading(false);
+      return data;
+    } catch {
+      setLoading(false);
+      return { error: "Could not sign in" };
+    }
+  }, []);
+
   const signOut = useCallback(async () => {
     const token = localStorage.getItem(TOKEN_KEY);
     if (token) {
@@ -179,8 +201,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ user, loading, signInDemo, signInEmail, sendEmailOtp, verifyEmailOtp, sendPhoneOtp, verifyPhoneOtp, signOut }),
-    [user, loading, signInDemo, signInEmail, sendEmailOtp, verifyEmailOtp, sendPhoneOtp, verifyPhoneOtp, signOut]
+    () => ({ user, loading, signInDemo, signInEmail, signInOAuthPreview, sendEmailOtp, verifyEmailOtp, sendPhoneOtp, verifyPhoneOtp, signOut }),
+    [user, loading, signInDemo, signInEmail, signInOAuthPreview, sendEmailOtp, verifyEmailOtp, sendPhoneOtp, verifyPhoneOtp, signOut]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

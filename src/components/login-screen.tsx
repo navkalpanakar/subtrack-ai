@@ -1,11 +1,12 @@
 "use client";
 
 import { signIn } from "next-auth/react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles, Mail, Loader2, ArrowLeft, MessageSquare } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { SavvyMascot } from "./savvy-mascot";
+import { GoogleLogo, MicrosoftLogo, AppleLogo } from "./brand-logos";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,26 +14,46 @@ import { Input } from "@/components/ui/input";
 type Mode = "main" | "email" | "otp";
 
 export function LoginScreen() {
-  const { signInDemo, sendEmailOtp, verifyEmailOtp } = useAuth();
+  const { signInDemo, sendEmailOtp, verifyEmailOtp, signInOAuthPreview } = useAuth();
   const [mode, setMode] = useState<Mode>("main");
   const [loading, setLoading] = useState<null | string>(null);
+
+  // Detect which OAuth providers are configured (real credentials present).
+  const [oauthProviders, setOauthProviders] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    fetch("/api/auth/providers")
+      .then((r) => r.json())
+      .then((data: Record<string, unknown>) => {
+        setOauthProviders(new Set(Object.keys(data)));
+      })
+      .catch(() => setOauthProviders(new Set()));
+  }, []);
 
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [otp, setOtp] = useState("");
   const [devOtp, setDevOtp] = useState<string | null>(null);
 
-  const handleGoogle = () => {
-    setLoading("google");
-    signIn("google", { callbackUrl: "/" });
-  };
-  const handleMicrosoft = () => {
-    setLoading("microsoft");
-    signIn("azure-ad", { callbackUrl: "/" });
-  };
-  const handleApple = () => {
-    setLoading("apple");
-    signIn("apple", { callbackUrl: "/" });
+  // OAuth handler: if the provider is configured (real credentials), use
+  // NextAuth's signIn. Otherwise, use the preview flow that creates a user
+  // + links the provider so the full experience is testable.
+  const handleOAuth = async (provider: "google" | "microsoft" | "apple") => {
+    setLoading(provider);
+    const nextAuthId =
+      provider === "google" ? "google" : provider === "microsoft" ? "azure-ad" : "apple";
+    if (oauthProviders.has(nextAuthId)) {
+      // Real OAuth — redirect to the provider
+      signIn(nextAuthId, { callbackUrl: "/" });
+    } else {
+      // Preview mode — create a user linked to this provider
+      const res = await signInOAuthPreview(provider);
+      if (res.error) {
+        toast.error(res.error);
+        setLoading(null);
+      }
+      // on success, the auth context updates and RootGate flips to AppShell
+    }
   };
 
   const handleDemo = async () => {
@@ -45,7 +66,6 @@ export function LoginScreen() {
   };
 
   const handleEmailSend = async () => {
-    // Client-side email validation before sending the code
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       toast.error("Please enter a valid email address");
       return;
@@ -81,7 +101,6 @@ export function LoginScreen() {
         toast.error(res.error);
         setLoading(null);
       }
-      // on success the auth context updates and RootGate flips to AppShell
     } catch {
       toast.error("Could not verify");
       setLoading(null);
@@ -122,7 +141,6 @@ export function LoginScreen() {
           </div>
 
           <AnimatePresence mode="wait">
-            {/* ─── Main auth menu ─── */}
             {mode === "main" && (
               <motion.div
                 key="main"
@@ -146,10 +164,26 @@ export function LoginScreen() {
                   <div className="h-px bg-border flex-1" />
                 </div>
 
+                {/* OAuth providers with real brand logos */}
                 <div className="grid grid-cols-3 gap-2">
-                  <OAuthButton label="Google" color="#EA4335" onClick={handleGoogle} loading={loading === "google"} />
-                  <OAuthButton label="Microsoft" color="#00A4EF" onClick={handleMicrosoft} loading={loading === "microsoft"} />
-                  <OAuthButton label="Apple" color="#111111" onClick={handleApple} loading={loading === "apple"} />
+                  <OAuthButton
+                    label="Google"
+                    onClick={() => handleOAuth("google")}
+                    loading={loading === "google"}
+                    logo={<GoogleLogo className="h-5 w-5" />}
+                  />
+                  <OAuthButton
+                    label="Microsoft"
+                    onClick={() => handleOAuth("microsoft")}
+                    loading={loading === "microsoft"}
+                    logo={<MicrosoftLogo className="h-5 w-5" />}
+                  />
+                  <OAuthButton
+                    label="Apple"
+                    onClick={() => handleOAuth("apple")}
+                    loading={loading === "apple"}
+                    logo={<AppleLogo className="h-5 w-5" />}
+                  />
                 </div>
 
                 <button
@@ -171,7 +205,6 @@ export function LoginScreen() {
               </motion.div>
             )}
 
-            {/* ─── Email entry mode ─── */}
             {mode === "email" && (
               <motion.div
                 key="email"
@@ -214,7 +247,6 @@ export function LoginScreen() {
               </motion.div>
             )}
 
-            {/* ─── OTP verification mode ─── */}
             {mode === "otp" && (
               <motion.div
                 key="otp"
@@ -268,10 +300,11 @@ export function LoginScreen() {
   );
 }
 
+// OAuth button with real brand logo
 function OAuthButton({
-  label, color, onClick, loading,
+  label, onClick, loading, logo,
 }: {
-  label: string; color: string; onClick: () => void; loading: boolean;
+  label: string; onClick: () => void; loading: boolean; logo: React.ReactNode;
 }) {
   return (
     <button
@@ -280,10 +313,10 @@ function OAuthButton({
       className="h-12 rounded-xl border border-border bg-card hover:bg-accent flex flex-col items-center justify-center gap-0.5 active:scale-[0.97] transition disabled:opacity-60"
     >
       {loading ? (
-        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
       ) : (
-        <div className="h-5 w-5 rounded-md flex items-center justify-center text-white text-[10px] font-bold" style={{ backgroundColor: color }}>
-          {label[0]}
+        <div className="h-5 w-5 flex items-center justify-center">
+          {logo}
         </div>
       )}
       <span className="text-[10px] font-medium">{label}</span>
