@@ -21,23 +21,7 @@ export async function POST(req: NextRequest) {
 
   await ensureUserProgress(userId);
 
-  // Freemium limit: only USA users have the 3-subscription free limit.
-  // All other countries are completely free (no limit, no Premium prompt).
-  const user = await db.user.findUnique({
-    where: { id: userId },
-    select: { plan: true, premiumExpiresAt: true, countryCode: true },
-  });
-  const isPremium = user?.plan === "premium" && (!user?.premiumExpiresAt || user.premiumExpiresAt > new Date());
-  const isUS = user?.countryCode === "US";
-  if (!isPremium && isUS) {
-    const subCount = await db.subscription.count({ where: { userId, status: "active" } });
-    if (subCount >= 3) {
-      return NextResponse.json(
-        { error: "Free plan limit reached. Upgrade to Premium for unlimited subscriptions." },
-        { status: 402 }
-      );
-    }
-  }
+  // No payment limits — the app is completely free for all users.
   const body = await req.json();
   const sub = await db.subscription.create({
     data: {

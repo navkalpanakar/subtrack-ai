@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   User, Mail, Phone, LogOut, Check, Loader2, Link2, Share2, Copy, Gift,
-  Trash2, AlertTriangle, Globe, Sparkles, Crown,
+  Trash2, AlertTriangle, Globe, Sparkles,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useLinkedAccounts, useReferralStatus, useShareReferral } from "@/hooks/use-gamification";
@@ -584,9 +584,6 @@ export function ProfileView() {
         </div>
       </div>
 
-      {/* Premium Upgrade Card */}
-      <PremiumCard />
-
       {/* Sign out */}
       <Button
         variant="outline"
@@ -722,107 +719,3 @@ function FieldRow({
   );
 }
 
-// ─── Premium Upgrade Card ───────────────────────────────────────
-function PremiumCard() {
-  const [plan, setPlan] = useState<{ plan: string; subscriptionCount: number; freeLimit: number | null; canAddMore: boolean; showPremium: boolean } | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    fetch("/api/account/plan", { headers: { "Content-Type": "application/json" } })
-      .then((r) => r.json())
-      .then(setPlan)
-      .catch(() => {});
-  }, []);
-
-  // Hide Premium card entirely for non-USA users (completely free)
-  if (plan && !plan.showPremium) return null;
-
-  const handleUpgrade = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/stripe/checkout", { method: "POST", headers: { "Content-Type": "application/json" } });
-      const data = await res.json();
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        toast.error(data.error || "Could not start checkout");
-        setLoading(false);
-      }
-    } catch {
-      toast.error("Could not connect to payment provider");
-      setLoading(false);
-    }
-  };
-
-  const handleManage = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/stripe/portal", { method: "POST", headers: { "Content-Type": "application/json" } });
-      const data = await res.json();
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        toast.error(data.error || "Could not open billing portal");
-        setLoading(false);
-      }
-    } catch {
-      toast.error("Could not connect to billing portal");
-      setLoading(false);
-    }
-  };
-
-  const isPremium = plan?.plan === "premium";
-
-  return (
-    <div className={`rounded-2xl p-4 ${isPremium ? "glass" : "bg-gradient-to-br from-amber-500/15 to-primary/10 border border-amber-500/25"}`}>
-      <div className="flex items-center gap-2 mb-3">
-        <Crown className={`h-5 w-5 ${isPremium ? "text-primary" : "text-amber-500"}`} />
-        <h3 className="font-semibold text-sm">{isPremium ? "Premium Active" : "Upgrade to Premium"}</h3>
-      </div>
-      {isPremium ? (
-        <>
-          <p className="text-xs text-muted-foreground mb-3">
-            ✨ You're on Premium — unlimited subscriptions, live price insights, and advanced offers.
-          </p>
-          <Button variant="outline" size="sm" className="w-full" onClick={handleManage} disabled={loading}>
-            {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Crown className="h-3.5 w-3.5 mr-1" />}
-            Manage subscription
-          </Button>
-        </>
-      ) : (
-        <>
-          <div className="space-y-2 mb-3">
-            <div className="flex items-center gap-2 text-xs">
-              <Check className="h-3.5 w-3.5 text-primary shrink-0" />
-              <span>Unlimited subscriptions (free: {plan?.freeLimit || 3} max)</span>
-            </div>
-            <div className="flex items-center gap-2 text-xs">
-              <Check className="h-3.5 w-3.5 text-primary shrink-0" />
-              <span>Live price insights with web search</span>
-            </div>
-            <div className="flex items-center gap-2 text-xs">
-              <Check className="h-3.5 w-3.5 text-primary shrink-0" />
-              <span>Advanced AI offers & deal alerts</span>
-            </div>
-            <div className="flex items-center gap-2 text-xs">
-              <Check className="h-3.5 w-3.5 text-primary shrink-0" />
-              <span>Priority email support</span>
-            </div>
-          </div>
-          {plan && !plan.canAddMore && (
-            <p className="text-[11px] text-amber-600 dark:text-amber-400 mb-2 font-medium">
-              ⚠️ You've reached the free limit ({plan.subscriptionCount}/{plan.freeLimit}). Upgrade to add more.
-            </p>
-          )}
-          <Button size="sm" className="w-full bg-gradient-to-r from-amber-500 to-primary" onClick={handleUpgrade} disabled={loading}>
-            {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Crown className="h-3.5 w-3.5 mr-1" />}
-            Upgrade to Premium
-          </Button>
-          <p className="text-[10px] text-muted-foreground text-center mt-2">
-            Secure payment via Stripe · Cancel anytime
-          </p>
-        </>
-      )}
-    </div>
-  );
-}
