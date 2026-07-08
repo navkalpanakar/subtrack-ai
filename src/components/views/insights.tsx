@@ -141,17 +141,81 @@ export function InsightsView() {
           animate={{ opacity: 1 }}
           className="glass rounded-2xl p-6 text-center space-y-4"
         >
-          <motion.div
-            animate={{ rotate: 360 }}
-            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-            className="mx-auto w-12 h-12 rounded-full border-4 border-primary/20 border-t-primary"
-          />
+          {/* Animated subscription-themed loader: Savvy mascot with orbiting subscription icons */}
+          <div className="relative mx-auto w-40 h-40 flex items-center justify-center">
+            {/* Orbit ring */}
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+              className="absolute inset-0"
+            >
+              {["📺", "🎵", "☁️", "🤖", "🎨", "🛒"].map((icon, i) => {
+                const angle = (i / 6) * 2 * Math.PI;
+                const radius = 65;
+                const x = Math.cos(angle) * radius;
+                const y = Math.sin(angle) * radius;
+                return (
+                  <motion.div
+                    key={i}
+                    className="absolute top-1/2 left-1/2 w-8 h-8 rounded-lg glass flex items-center justify-center text-sm shadow-md"
+                    style={{ x, y, marginLeft: -16, marginTop: -16 }}
+                    animate={{ scale: [1, 1.15, 1] }}
+                    transition={{ duration: 1.5, repeat: Infinity, delay: i * 0.2 }}
+                  >
+                    {icon}
+                  </motion.div>
+                );
+              })}
+            </motion.div>
+            {/* Center: Savvy mascot with pulse */}
+            <motion.div
+              animate={{ scale: [1, 1.08, 1] }}
+              transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+            >
+              <SavvyMascot size={56} variant="excited" />
+            </motion.div>
+            {/* Scanning beam effect */}
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+              className="absolute inset-0 rounded-full"
+              style={{
+                background: "conic-gradient(from 0deg, transparent 0deg, oklch(0.62 0.15 162 / 0.15) 30deg, transparent 60deg)",
+              }}
+            />
+          </div>
           <div>
             <h3 className="font-semibold text-sm">Savvy is analyzing your subscriptions…</h3>
             <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
               Fetching live web prices and generating personalized insights.
               This can take <span className="font-semibold text-foreground">2-5 minutes</span> based on your subscriptions.
             </p>
+          </div>
+          {/* Progress steps */}
+          <div className="flex items-center justify-center gap-1.5 text-[10px] text-muted-foreground">
+            <motion.span
+              animate={{ opacity: [0.4, 1, 0.4] }}
+              transition={{ duration: 1.5, repeat: Infinity, delay: 0 }}
+              className="flex items-center gap-1"
+            >
+              <span className="h-1.5 w-1.5 rounded-full bg-primary" /> Fetching prices
+            </motion.span>
+            <span className="text-muted-foreground/30">→</span>
+            <motion.span
+              animate={{ opacity: [0.4, 1, 0.4] }}
+              transition={{ duration: 1.5, repeat: Infinity, delay: 0.5 }}
+              className="flex items-center gap-1"
+            >
+              <span className="h-1.5 w-1.5 rounded-full bg-primary" /> Comparing plans
+            </motion.span>
+            <span className="text-muted-foreground/30">→</span>
+            <motion.span
+              animate={{ opacity: [0.4, 1, 0.4] }}
+              transition={{ duration: 1.5, repeat: Infinity, delay: 1 }}
+              className="flex items-center gap-1"
+            >
+              <span className="h-1.5 w-1.5 rounded-full bg-primary" /> Finding savings
+            </motion.span>
           </div>
           <div className="rounded-xl bg-primary/5 border border-primary/15 p-3 text-left">
             <p className="text-[11px] font-medium text-primary mb-1.5">Meanwhile, explore:</p>
