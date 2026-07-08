@@ -374,3 +374,37 @@ Stage Summary:
 - Splash screen added and verified.
 - App is deployment-ready pending env vars (NEXTAUTH_SECRET, NEXTAUTH_URL, OAuth credentials).
 - SQLite works for preview/low-traffic; PostgreSQL recommended for production.
+
+---
+Task ID: 11
+Agent: main
+Task: Wire real email sending (Resend free tier) for all OTP flows — login, change-email, delete-account
+
+Work Log:
+- Installed `resend` SDK (free tier: 3,000 emails/month, 100/day, no credit card).
+- Created src/lib/email.ts — sendOtpEmail() helper:
+  * When RESEND_API_KEY env var is SET: sends a real branded HTML email (green SubTrack AI template with the code in a dashed-border box) via Resend, does NOT return devOtp.
+  * When RESEND_API_KEY is NOT set: returns the code as devOtp (preview mode, UI shows the amber box).
+  * Handles 3 purposes: login, change-email, delete-account (different subject lines + body text).
+  * Graceful fallback: if Resend errors, falls back to devOtp so the user isn't blocked.
+- Updated all 4 OTP routes to use sendOtpEmail():
+  * /api/auth/email-send (login)
+  * /api/account/change-email-send
+  * /api/account/delete-send
+  * (phone-send stays as devOtp since SMS needs Twilio, not email)
+- Updated .env.example with RESEND_API_KEY + EMAIL_FROM vars + setup instructions.
+- Updated login screen + profile page: when real email is sent (no devOtp), toast says "Verification code sent to your email!" and the amber preview box is hidden. When in preview mode, shows "Preview code: XXXX" as before.
+- Verified: preview mode still works (shows "PREVIEW CODE" box). The moment RESEND_API_KEY is added, real emails send and the box disappears.
+
+Files changed for real email sending:
+- src/lib/email.ts (NEW — the helper)
+- src/app/api/auth/email-send/route.ts
+- src/app/api/account/change-email-send/route.ts
+- src/app/api/account/delete-send/route.ts
+- src/components/login-screen.tsx (toast adapts to real vs preview)
+- src/components/views/profile.tsx (toasts adapt)
+- .env.example (added RESEND_API_KEY + EMAIL_FROM)
+
+Stage Summary:
+- To enable real email sending for FREE: sign up at resend.com (2 min), get API key, add RESEND_API_KEY="re_xxx" to .env. That's it — no code changes needed.
+- Until then, the app runs in preview mode (shows codes in the UI).

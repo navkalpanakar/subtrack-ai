@@ -116,9 +116,9 @@ export function ProfileView() {
       if (data.error) {
         toast.error(data.error);
       } else {
-        setDevEmailOtp(data.devOtp);
+        setDevEmailOtp(data.devOtp || null);
         setEmailMode("otp");
-        toast.success(`Code sent! Preview: ${data.devOtp}`);
+        toast.success(data.devOtp ? `Preview code: ${data.devOtp}` : "Code sent to your new email!");
       }
     } catch {
       toast.error("Could not send code");
@@ -164,9 +164,9 @@ export function ProfileView() {
       if (data.error) {
         toast.error(data.error);
       } else {
-        setDevDeleteOtp(data.devOtp);
+        setDevDeleteOtp(data.devOtp || null);
         setDeleteMode("otp");
-        toast.success(`Deletion code sent to ${data.email}. Preview: ${data.devOtp}`);
+        toast.success(data.devOtp ? `Preview code: ${data.devOtp}` : `Deletion code sent to ${data.email}`);
       }
     } catch {
       toast.error("Could not send code");

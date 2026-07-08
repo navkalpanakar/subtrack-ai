@@ -78,8 +78,13 @@ export function LoginScreen() {
         return;
       }
       if (res.devOtp) {
+        // Preview mode — no real email was sent, show the code for testing
         setDevOtp(res.devOtp);
-        toast.success(`Verification code sent! Preview code: ${res.devOtp}`);
+        toast.success(`Preview code: ${res.devOtp}`);
+      } else {
+        // Real email was sent — don't show the code
+        setDevOtp(null);
+        toast.success("Verification code sent to your email!");
       }
       setMode("otp");
     } catch {

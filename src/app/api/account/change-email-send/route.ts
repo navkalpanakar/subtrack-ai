@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getUserId } from "@/lib/session";
 import { issueOtp } from "@/lib/token-store";
+import { sendOtpEmail } from "@/lib/email";
 
 // Send a verification code to a NEW email before allowing the change.
 export async function POST(req: NextRequest) {
@@ -20,5 +21,6 @@ export async function POST(req: NextRequest) {
   }
 
   const otp = issueOtp(`change-email:${userId}:${newEmail}`);
-  return NextResponse.json({ sent: true, devOtp: otp });
+  const result = await sendOtpEmail(newEmail, otp, "change-email");
+  return NextResponse.json({ sent: true, devOtp: result.devOtp });
 }
