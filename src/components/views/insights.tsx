@@ -136,9 +136,44 @@ export function InsightsView() {
 
       {/* Insights list */}
       {isLoading ? (
-        <div className="space-y-3">
-          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24 rounded-2xl" />)}
-        </div>
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="glass rounded-2xl p-6 text-center space-y-4"
+        >
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+            className="mx-auto w-12 h-12 rounded-full border-4 border-primary/20 border-t-primary"
+          />
+          <div>
+            <h3 className="font-semibold text-sm">Savvy is analyzing your subscriptions…</h3>
+            <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+              Fetching live web prices and generating personalized insights.
+              This can take <span className="font-semibold text-foreground">2-5 minutes</span> based on your subscriptions.
+            </p>
+          </div>
+          <div className="rounded-xl bg-primary/5 border border-primary/15 p-3 text-left">
+            <p className="text-[11px] font-medium text-primary mb-1.5">Meanwhile, explore:</p>
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-base">🎁</span>
+                <span><strong>Rewards tab</strong> — spin the wheel, unlock scratch cards, check the leaderboard</span>
+              </div>
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-base">📊</span>
+                <span><strong>Subs tab</strong> — review your subscriptions, edit prices, manage cancellations</span>
+              </div>
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-base">👤</span>
+                <span><strong>Profile</strong> — set your occupation for curated student/corporate discounts</span>
+              </div>
+            </div>
+          </div>
+          <p className="text-[10px] text-muted-foreground">
+            Come back to this tab in a few minutes — your insights will be ready.
+          </p>
+        </motion.div>
       ) : !insights || insights.length === 0 ? (
         <div className="text-center py-12">
           <SavvyMascot size={72} variant="idle" className="mx-auto mb-3 opacity-60" />

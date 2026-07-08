@@ -10,12 +10,13 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
   const email = (body.email as string) || "guest@subtrack.ai";
   const name = (body.name as string) || "Guest User";
+  const currency = (body.currency as string) || "USD";
 
   let user = await db.user.findUnique({ where: { email } });
   const isNew = !user;
   if (!user) {
-    user = await db.user.create({ data: { email, name } });
-    await seedDemoSubscriptions(user.id);
+    user = await db.user.create({ data: { email, name, currency } });
+    await seedDemoSubscriptions(user.id, currency);
   }
   await ensureUserProgress(user.id);
   // Link the email provider for the demo account

@@ -657,3 +657,46 @@ Stage Summary:
 - Savings calculation is now correct: shows the best SINGLE option, not the sum of all alternatives.
 - LLM is constrained to generate realistic amounts (never more than the subscription costs).
 - For single-subscription users, insights are appropriate (no "overlapping services" suggestions).
+
+---
+Task ID: 19
+Agent: main
+Task: Fix demo data currency localization + insights loading state + nav transparency
+
+Work Log:
+- Fix 1: Demo subscriptions now use LOCAL currency prices:
+  * seedDemoSubscriptions(userId, currency) now accepts a currency parameter
+  * Price tables for INR, USD, GBP, EUR with realistic local plan prices:
+    - Netflix: ₹199 (INR) / $15.49 (USD) / £10.99 (GBP) / €12.99 (EUR)
+    - Spotify: ₹119 / $11.99 / £11.99 / €11.99
+    - Adobe CC: ₹1675 / $59.99 / £51.98 / €59.99
+    - Amazon Prime: ₹1499/yr / $139/yr / £95/yr / €89/yr
+    - etc. for all 8 subscriptions
+  * Demo login passes the user's detected currency
+  * Currency-specific email (guest-inr@, guest-usd@) so switching countries creates a fresh demo with correct prices
+  * Each subscription stores its currency in the DB
+  * Verified: INR demo → ₹3,316.92/mo spend (was $146.03 with wrong ₹ symbol)
+- Fix 2: Insights loading state with 2-5 min message:
+  * Replaced skeleton loaders with a full "Savvy is analyzing…" card
+  * Animated spinner (rotating ring)
+  * "Fetching live web prices and generating personalized insights. This can take 2-5 minutes based on your subscriptions."
+  * "Meanwhile, explore:" box with 3 suggestions:
+    - 🎁 Rewards tab — spin the wheel, unlock scratch cards, check the leaderboard
+    - 📊 Subs tab — review your subscriptions, edit prices, manage cancellations
+    - 👤 Profile — set your occupation for curated student/corporate discounts
+  * "Come back to this tab in a few minutes — your insights will be ready."
+- Fix 3: Nav transparency reduced to >50% opacity:
+  * .glass-nav: 35% → 65% opacity (light), 40% → 70% (dark)
+  * Blur: 32px → 24px (still frosted but more readable)
+  * VLM-confirmed: "readable, not too transparent, good legibility"
+
+Verification (Agent Browser):
+- INR demo: Monthly spend ₹3,316.92, Netflix ₹199, ChatGPT Plus ₹195 — all correct local prices ✓
+- Nav bars: VLM-confirmed "readable, not too transparent" ✓
+- Insights loading state: shows "Savvy is analyzing… 2-5 minutes" with explore suggestions ✓
+- Zero new errors, lint clean.
+
+Stage Summary:
+- Demo data is now localized: India gets ₹199 Netflix, USA gets $15.49, UK gets £10.99, EU gets €12.99.
+- Insights loading tells users it takes 2-5 min + suggests exploring Rewards/Subs/Profile meanwhile.
+- Nav bars are >50% opacity — readable but still glassmorphic.

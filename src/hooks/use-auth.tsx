@@ -93,12 +93,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInDemo = useCallback(async () => {
     setLoading(true);
+    // Pass the user's detected currency so demo subscriptions use local prices.
+    // Use a currency-specific email so switching countries creates a fresh
+    // demo user with correct local prices (instead of reusing the old USD one).
+    const currency = typeof window !== "undefined"
+      ? localStorage.getItem("subtrack_currency") || "USD"
+      : "USD";
+    const email = `guest-${currency.toLowerCase()}@subtrack.ai`;
     const res = await fetch("/api/auth/demo-login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        email: "guest@subtrack.ai",
+        email,
         name: "Guest User",
+        currency,
       }),
     });
     const data: { token: string; user: SessionUser } = await res.json();
