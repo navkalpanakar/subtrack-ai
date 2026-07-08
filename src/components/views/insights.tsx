@@ -9,7 +9,8 @@ import { useProgress } from "@/hooks/use-gamification";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SavvyMascot } from "@/components/savvy-mascot";
-import { formatCurrency, monthlyEquivalent } from "@/lib/format";
+import { monthlyEquivalent } from "@/lib/format";
+import { useFormatCurrency } from "@/hooks/use-currency-store";
 
 const TYPE_META: Record<Insight["type"], { icon: LucideIcon; color: string; bg: string; label: string }> = {
   saving: { icon: TrendingDown, color: "text-primary", bg: "bg-primary/10", label: "Savings" },
@@ -22,6 +23,7 @@ export function InsightsView() {
   const { data: insights, isLoading, refetch, isFetching } = useInsights();
   const { data: subs } = useSubscriptions();
   const { data: progress } = useProgress();
+  const fmt = useFormatCurrency();
 
   const totalSavings = (insights || []).reduce((sum, i) => sum + (i.potentialSaving || 0), 0);
   const totalMonthly = (subs || [])
@@ -74,10 +76,10 @@ export function InsightsView() {
         className="rounded-2xl bg-gradient-to-br from-primary/15 to-primary/5 border border-primary/20 p-4"
       >
         <p className="text-xs text-muted-foreground">Potential monthly savings</p>
-        <p className="text-3xl font-bold text-primary mt-0.5">{formatCurrency(totalSavings)}</p>
+        <p className="text-3xl font-bold text-primary mt-0.5">{fmt(totalSavings)}</p>
         <p className="text-xs text-muted-foreground mt-1">
           {totalMonthly > 0
-            ? `That's ${Math.round((totalSavings / totalMonthly) * 100)}% of your ${formatCurrency(totalMonthly)}/mo spend`
+            ? `That's ${Math.round((totalSavings / totalMonthly) * 100)}% of your ${fmt(totalMonthly)}/mo spend`
             : "Add subscriptions to see personalized savings"}
         </p>
       </motion.div>
@@ -113,7 +115,7 @@ export function InsightsView() {
                     <div className="flex items-center gap-2 mb-1">
                       <span className={`text-[10px] font-semibold uppercase tracking-wide ${meta.color}`}>{meta.label}</span>
                       {insight.potentialSaving ? (
-                        <span className="text-[10px] font-bold text-primary">{formatCurrency(insight.potentialSaving)}/mo</span>
+                        <span className="text-[10px] font-bold text-primary">{fmt(insight.potentialSaving)}/mo</span>
                       ) : null}
                     </div>
                     <h3 className="font-semibold text-sm">{insight.title}</h3>

@@ -2,7 +2,8 @@
 
 import { useEffect } from "react";
 import { useAuth } from "./use-auth";
-import { detectCurrency, setCurrency } from "@/lib/currency";
+import { useCurrencyStore } from "./use-currency-store";
+import { detectCurrency } from "@/lib/currency";
 
 // Country code → currency mapping (superset of the locale map).
 const COUNTRY_CURRENCY: Record<string, string> = {
@@ -19,6 +20,7 @@ const COUNTRY_CURRENCY: Record<string, string> = {
 
 export function useGeolocation() {
   const { user } = useAuth();
+  const setCurrency = useCurrencyStore((s) => s.setCurrency);
 
   useEffect(() => {
     if (!user) return;
@@ -28,8 +30,8 @@ export function useGeolocation() {
     const saveLocation = async (country: string, countryCode: string, city: string) => {
       // Determine currency from country code
       const currency = COUNTRY_CURRENCY[countryCode] || "USD";
-      // Store in localStorage so the Quick Add sheet uses it immediately
-      setCurrency(currency);
+      // Update the global currency store (reactive — all components update)
+      setCurrency(currency, countryCode);
       // Persist to the user's account
       try {
         await fetch("/api/account/location", {
@@ -69,7 +71,6 @@ export function useGeolocation() {
           }
         },
         () => {
-          // Permission denied or error — fall back to IP-based geolocation
           fallbackToIP();
         },
         { timeout: 8000, enableHighAccuracy: false }
@@ -95,5 +96,5 @@ export function useGeolocation() {
     return () => {
       cancelled = true;
     };
-  }, [user]);
+  }, [user, setCurrency]);
 }

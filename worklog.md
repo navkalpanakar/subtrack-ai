@@ -408,3 +408,43 @@ Files changed for real email sending:
 Stage Summary:
 - To enable real email sending for FREE: sign up at resend.com (2 min), get API key, add RESEND_API_KEY="re_xxx" to .env. That's it — no code changes needed.
 - Until then, the app runs in preview mode (shows codes in the UI).
+
+---
+Task ID: 12
+Agent: main
+Task: Fix currency consistency — global currency store + country picker with flags in Profile
+
+Work Log:
+- Root cause: formatCurrency() in lib/format.ts defaulted to USD. The Quick Add sheet detected INR correctly (via locale), but Dashboard/Insights/SubscriptionCard all called formatCurrency without the user's currency → showed $ instead of ₹.
+- Built global currency store (src/hooks/use-currency-store.ts):
+  * Zustand store: { currency, countryCode, setCurrency(), init() }
+  * COUNTRIES array: 40 countries with flag emoji + currency code (🇮🇳 India·INR, 🇺🇸 US·USD, 🇬🇧 UK·GBP, etc.)
+  * countryByCode() + countryByCurrency() helpers
+  * useFormatCurrency() hook — returns a formatter that uses the global currency reactively
+- Providers: init() the currency store on mount (reads localStorage)
+- Geolocation hook: now updates the global store (reactive) + persists country code
+- Updated all currency-displaying components to use useFormatCurrency():
+  * Dashboard: monthly spend, yearly, saved, savings goal, category breakdown — all use fmt()
+  * Insights: potential savings, monthly spend — use fmt()
+  * SubscriptionCard: amount + monthly equivalent — use fmt()
+  * Quick Add sheet: currency selector now uses the global store (removed local state + useEffect)
+- Profile: NEW country picker with flags:
+  * Globe icon + "Country & Currency" field
+  * Dropdown with 40 countries (flag + name + currency)
+  * Selecting a country calls setGlobalCurrency() → instantly updates the whole app reactively
+  * Persists to /api/account/location
+  * Toast confirms: "🇮🇳 India · INR"
+
+Verification (Agent Browser):
+- Set India (INR) in storage → signed in → dashboard showed ₹146 (not $146) ✓
+- Insights tab: ₹0.00 and ₹146.03 ✓
+- Profile: country picker shows "🇮🇳 India · INR" ✓
+- Changed to United States → dashboard instantly showed $10.00, $15.49 ✓
+- Changed back to India → dashboard instantly showed ₹10.00, ₹15.49 ✓
+- Currency is now reactive across the entire platform
+- Zero errors, lint clean.
+
+Stage Summary:
+- Currency is now globally consistent: set it once (via geolocation or Profile picker) and it reflects everywhere.
+- Country picker with flags in Profile lets users override the detected location.
+- All amounts in Dashboard, Insights, Subscriptions, Quick Add use the same reactive currency.

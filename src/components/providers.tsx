@@ -2,8 +2,9 @@
 
 import { ThemeProvider } from "next-themes";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useState, type ReactNode } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { AuthProvider } from "@/hooks/use-auth";
+import { useCurrencyStore } from "@/hooks/use-currency-store";
 
 export function Providers({ children }: { children: ReactNode }) {
   const [client] = useState(
@@ -14,10 +15,12 @@ export function Providers({ children }: { children: ReactNode }) {
         },
       })
   );
-  // SessionProvider removed — we use token-based auth (localStorage + header)
-  // which works in cross-origin iframes. NextAuth is still available server-side
-  // for Google/Microsoft/Apple OAuth callbacks (signIn() from the client still
-  // works; we just don't wrap the app in SessionProvider).
+  const initCurrency = useCurrencyStore((s) => s.init);
+  // Initialize currency from localStorage on mount (client-side only)
+  useEffect(() => {
+    initCurrency();
+  }, [initCurrency]);
+
   return (
     <ThemeProvider
       attribute="class"

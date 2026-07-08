@@ -4,14 +4,22 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   User, Mail, Phone, LogOut, Check, Loader2, Link2, Share2, Copy, Gift,
-  Trash2, AlertTriangle,
+  Trash2, AlertTriangle, Globe,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useLinkedAccounts, useReferralStatus, useShareReferral } from "@/hooks/use-gamification";
+import { useCurrencyStore, COUNTRIES, countryByCode, countryByCurrency } from "@/hooks/use-currency-store";
 import { SavvyMascot } from "@/components/savvy-mascot";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 
 type Profile = {
@@ -30,6 +38,8 @@ export function ProfileView() {
   const { data: linked } = useLinkedAccounts();
   const { data: referral } = useReferralStatus();
   const shareReferral = useShareReferral();
+  const { currency, countryCode, setCurrency: setGlobalCurrency } = useCurrencyStore();
+  const [selectedCountry, setSelectedCountry] = useState(countryCode || "");
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [editingName, setEditingName] = useState(false);
@@ -201,6 +211,31 @@ export function ProfileView() {
 
   const handleShare = async () => {
     await shareReferral.mutateAsync();
+  };
+
+  const handleCountryChange = async (code: string) => {
+    setSelectedCountry(code);
+    const country = countryByCode(code);
+    if (country) {
+      // Update the global currency store (reactive across the whole app)
+      setGlobalCurrency(country.currency, code);
+      // Persist to the user's account
+      try {
+        await fetch("/api/account/location", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            country: country.name,
+            countryCode: code,
+            city: "",
+            currency: country.currency,
+          }),
+        });
+      } catch {
+        // non-critical
+      }
+      toast.success(`${country.flag} ${country.name} · ${country.currency}`);
+    }
   };
 
   const copyReferralCode = () => {
@@ -378,6 +413,39 @@ export function ProfileView() {
           </Button>
         </div>
       </FieldRow>
+
+      {/* Country & Currency picker with flags */}
+      <div className="glass rounded-2xl p-4">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+            <Globe className="h-4 w-4 text-primary" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <Label className="text-[10px] text-muted-foreground uppercase tracking-wide">Country &amp; Currency</Label>
+            <p className="text-sm font-medium">
+              {selectedCountry
+                ? `${countryByCode(selectedCountry)?.flag || ""} ${countryByCode(selectedCountry)?.name || ""} · ${currency}`
+                : `Select your country · ${currency}`}
+            </p>
+          </div>
+        </div>
+        <Select value={selectedCountry || ""} onValueChange={handleCountryChange}>
+          <SelectTrigger className="h-10">
+            <SelectValue placeholder="Choose your country" />
+          </SelectTrigger>
+          <SelectContent className="max-h-72">
+            {COUNTRIES.map((c) => (
+              <SelectItem key={c.code} value={c.code}>
+                <span className="mr-2 text-base">{c.flag}</span>
+                {c.name} · {c.currency}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-[10px] text-muted-foreground mt-2">
+          Currency updates across the whole app instantly. Detected from your location on sign-in.
+        </p>
+      </div>
 
       {/* Linked accounts */}
       <div className="glass rounded-2xl p-4">

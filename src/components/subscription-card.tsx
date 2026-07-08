@@ -13,13 +13,13 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import {
-  formatCurrency,
   monthlyEquivalent,
   relativeRenewal,
   daysUntil,
 } from "@/lib/format";
 import { LOGO_FALLBACKS } from "@/lib/logo";
 import { useUpdateSubscription, type Subscription } from "@/hooks/use-subscriptions";
+import { useFormatCurrency } from "@/hooks/use-currency-store";
 
 export function SubscriptionCard({
   sub,
@@ -36,6 +36,7 @@ export function SubscriptionCard({
   const [editingAmount, setEditingAmount] = useState(false);
   const [amountValue, setAmountValue] = useState(String(sub.amount));
   const updateSub = useUpdateSubscription();
+  const fmt = useFormatCurrency();
   const days = daysUntil(sub.nextBillingDate);
   const monthly = monthlyEquivalent(Number(sub.amount), sub.billingCycle);
   const urgent = days <= 3 && sub.status === "active";
@@ -157,10 +158,10 @@ export function SubscriptionCard({
             title="Tap to edit price"
           >
             <p className="font-bold text-sm group-hover:text-primary transition">
-              {formatCurrency(Number(sub.amount))}
+              {fmt(Number(sub.amount))}
             </p>
             <p className="text-[10px] text-muted-foreground group-hover:text-primary/70 transition">
-              {formatCurrency(monthly)}/mo
+              {fmt(monthly)}/mo
             </p>
           </button>
         )}

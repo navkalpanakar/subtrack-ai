@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import {
   Drawer,
   DrawerContent,
@@ -35,7 +35,8 @@ import {
   type Subscription,
 } from "@/hooks/use-subscriptions";
 import { CATEGORIES, CYCLES, categoryColor } from "@/lib/format";
-import { detectCurrency, setCurrency, currencySymbol, POPULAR_CURRENCIES } from "@/lib/currency";
+import { currencySymbol, POPULAR_CURRENCIES } from "@/lib/currency";
+import { useCurrencyStore } from "@/hooks/use-currency-store";
 import { useLinkedAccounts, useLinkAccount } from "@/hooks/use-gamification";
 
 type Draft = {
@@ -84,12 +85,7 @@ export function QuickAddSheet({
   const create = useCreateSubscription();
   const { data: linkedAccounts } = useLinkedAccounts();
   const linkAccount = useLinkAccount();
-  const [currency, setLocalCurrency] = useState("USD");
-
-  // Detect currency on mount
-  useEffect(() => {
-    setLocalCurrency(detectCurrency());
-  }, []);
+  const { currency, setCurrency: setGlobalCurrency } = useCurrencyStore();
 
   // AI natural language state
   const [nlText, setNlText] = useState("");
@@ -393,8 +389,7 @@ export function QuickAddSheet({
             <Select
               value={currency}
               onValueChange={(v) => {
-                setLocalCurrency(v);
-                setCurrency(v);
+                setGlobalCurrency(v);
               }}
             >
               <SelectTrigger className="h-7 w-auto text-xs gap-1 rounded-full">

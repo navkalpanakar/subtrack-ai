@@ -11,7 +11,8 @@ import { useUI } from "@/hooks/use-ui";
 import { useProgress } from "@/hooks/use-gamification";
 import { SubscriptionCard } from "@/components/subscription-card";
 import { SavvyMascot } from "@/components/savvy-mascot";
-import { formatCurrency, yearlyEquivalent, monthlyEquivalent, daysUntil, relativeRenewal } from "@/lib/format";
+import { yearlyEquivalent, monthlyEquivalent, daysUntil, relativeRenewal } from "@/lib/format";
+import { useFormatCurrency } from "@/hooks/use-currency-store";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -28,6 +29,7 @@ export function DashboardView() {
   const { data: progress } = useProgress();
   const deleteSub = useDeleteSubscription();
   const { setTab, setQuickAddOpen } = useUI();
+  const fmt = useFormatCurrency();
 
   const stats = useMemo(() => {
     if (!subs) return { monthly: 0, yearly: 0, active: 0, upcoming: [] as Subscription[] };
@@ -144,11 +146,11 @@ export function DashboardView() {
                 transition={{ delay: 0.2 }}
                 className="text-4xl font-bold tracking-tight mt-1"
               >
-                {formatCurrency(stats.monthly)}
+                {fmt(stats.monthly)}
               </motion.p>
               <div className="flex items-center gap-1.5 mt-1">
                 <span className="text-[11px] text-primary-foreground/70">
-                  {formatCurrency(stats.yearly)}/yr
+                  {fmt(stats.yearly)}/yr
                 </span>
                 <span className="text-primary-foreground/40">·</span>
                 <span className="text-[11px] text-primary-foreground/70">{stats.active} active</span>
@@ -177,7 +179,7 @@ export function DashboardView() {
             >
               <TrendingDown className="h-3.5 w-3.5" />
               <span className="text-xs font-semibold">
-                {formatCurrency(progress?.totalSaved || 0)} saved this month
+                {fmt(progress?.totalSaved || 0)} saved this month
               </span>
             </motion.div>
           )}
@@ -215,7 +217,7 @@ export function DashboardView() {
               Savings goal
             </h3>
             <span className="text-xs text-muted-foreground">
-              {formatCurrency(progress.totalSaved)} / {formatCurrency(progress.savingsGoal)}
+              {fmt(progress.totalSaved)} / {fmt(progress.savingsGoal)}
             </span>
           </div>
           <div className="h-2.5 rounded-full bg-muted overflow-hidden">
@@ -311,6 +313,7 @@ function StatTile({
 }
 
 function CategoryBreakdown({ subs }: { subs: Subscription[] }) {
+  const fmt = useFormatCurrency();
   const cats = useMemo(() => {
     const map = new Map<string, number>();
     for (const s of subs) {
@@ -331,7 +334,7 @@ function CategoryBreakdown({ subs }: { subs: Subscription[] }) {
             <div key={cat}>
               <div className="flex items-center justify-between text-xs mb-1">
                 <span className="font-medium">{cat}</span>
-                <span className="text-muted-foreground">{formatCurrency(val)} · {pct}%</span>
+                <span className="text-muted-foreground">{fmt(val)} · {pct}%</span>
               </div>
               <div className="h-2 rounded-full bg-muted overflow-hidden">
                 <motion.div
