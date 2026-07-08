@@ -50,17 +50,17 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async signIn({ user }) {
       // For Google OAuth: ensure user row exists in our DB.
+      // Don't seed demo data — Google users start with an empty dashboard.
       if (user?.email) {
         const existing = await db.user.findUnique({ where: { email: user.email } });
         if (!existing && user.email) {
-          const created = await db.user.create({
+          await db.user.create({
             data: {
               email: user.email,
               name: user.name || null,
               image: user.image || null,
             },
           });
-          await seedDemoSubscriptions(created.id);
         }
       }
       return true;
