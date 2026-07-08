@@ -40,18 +40,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<SessionUser | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Install a global fetch wrapper once: every request gets the token header.
+  // Install a global fetch wrapper once: every request gets the token header
+  // AND includes credentials (cookies) so NextAuth sessions work too.
   useEffect(() => {
     const originalFetch = window.fetch;
     window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
       const token = localStorage.getItem(TOKEN_KEY);
-      if (token) {
-        const headers = new Headers(init?.headers || {});
-        if (!headers.has("x-subpilot-token")) {
-          headers.set("x-subpilot-token", token);
-        }
-        init = { ...init, headers };
+      const headers = new Headers(init?.headers || {});
+      if (token && !headers.has("x-subpilot-token")) {
+        headers.set("x-subpilot-token", token);
       }
+      // Always include credentials so the NextAuth cookie is sent
+      init = { ...init, headers, credentials: "include" };
       return originalFetch(input, init);
     };
     return () => {
