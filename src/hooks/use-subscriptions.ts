@@ -85,12 +85,16 @@ export type Insight = {
   detail: string;
   potentialSaving?: number;
   provider?: string;
+  action?: "find_annual" | "find_student" | "find_alternative" | "cancel" | "downgrade" | "search_offer";
 };
 
 export function useInsights(currency?: string) {
   return useQuery<Insight[]>({
     queryKey: ["insights", currency],
     queryFn: () => api(`/api/ai/insights${currency ? `?currency=${currency}` : ""}`),
+    // Insights fetch live web prices which can take 20-40s — allow up to 90s
+    staleTime: 5 * 60 * 1000, // cache for 5 min to avoid re-fetching
+    retry: 1,
   });
 }
 

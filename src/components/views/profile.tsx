@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   User, Mail, Phone, LogOut, Check, Loader2, Link2, Share2, Copy, Gift,
-  Trash2, AlertTriangle, Globe,
+  Trash2, AlertTriangle, Globe, Sparkles,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useLinkedAccounts, useReferralStatus, useShareReferral } from "@/hooks/use-gamification";
@@ -30,6 +30,9 @@ type Profile = {
   image: string | null;
   referralCode: string | null;
   createdAt: string;
+  dateOfBirth: string | null;
+  occupation: string | null;
+  organization: string | null;
   linkedAccounts: Array<{ provider: string; identifier: string }>;
 };
 
@@ -47,6 +50,11 @@ export function ProfileView() {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [saving, setSaving] = useState(false);
+
+  // DOB + occupation + organization for curated insights
+  const [dateOfBirth, setDateOfBirth] = useState("");
+  const [occupation, setOccupation] = useState<string>("");
+  const [organization, setOrganization] = useState("");
 
   // Email change flow
   const [emailMode, setEmailMode] = useState<null | "enter" | "otp">(null);
@@ -68,6 +76,9 @@ export function ProfileView() {
         setProfile(data);
         setName(data.name || "");
         setPhone(data.phone || "");
+        setDateOfBirth(data.dateOfBirth || "");
+        setOccupation(data.occupation || "");
+        setOrganization(data.organization || "");
       })
       .catch(() => {});
   }, [linked]);
@@ -103,6 +114,24 @@ export function ProfileView() {
       setProfile(updated);
       setEditingPhone(false);
       toast.success("Phone updated");
+    } catch {
+      toast.error("Could not save");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const saveProfileDetails = async () => {
+    setSaving(true);
+    try {
+      const res = await fetch("/api/account/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dateOfBirth, occupation, organization }),
+      });
+      const updated = await res.json();
+      setProfile({ ...profile, ...updated });
+      toast.success("Profile details saved — Savvy will use these for curated insights");
     } catch {
       toast.error("Could not save");
     } finally {
@@ -413,6 +442,74 @@ export function ProfileView() {
           </Button>
         </div>
       </FieldRow>
+
+      {/* Profile details for curated insights — DOB, occupation, organization */}
+      <div className="glass rounded-2xl p-4 space-y-3">
+        <div className="flex items-center gap-1.5">
+          <Sparkles className="h-4 w-4 text-primary" />
+          <h3 className="font-semibold text-sm">Personalize your insights</h3>
+        </div>
+        <p className="text-[11px] text-muted-foreground -mt-1">
+          By providing this info, Savvy can curate student discounts, corporate perks, and age-based offers for you.
+        </p>
+
+        <div className="space-y-1.5">
+          <Label className="text-[10px] text-muted-foreground uppercase tracking-wide">Date of birth</Label>
+          <Input
+            type="date"
+            value={dateOfBirth}
+            onChange={(e) => setDateOfBirth(e.target.value)}
+            className="h-9"
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <Label className="text-[10px] text-muted-foreground uppercase tracking-wide">Occupation</Label>
+          <Select value={occupation || ""} onValueChange={setOccupation}>
+            <SelectTrigger className="h-9"><SelectValue placeholder="Select your occupation" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="student">🎓 Student</SelectItem>
+              <SelectItem value="salaried">💼 Salaried / Employed</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {occupation === "student" && (
+          <div className="space-y-1.5">
+            <Label className="text-[10px] text-muted-foreground uppercase tracking-wide">School / University (optional)</Label>
+            <Input
+              placeholder="e.g. IIT Delhi"
+              value={organization}
+              onChange={(e) => setOrganization(e.target.value)}
+              className="h-9"
+            />
+          </div>
+        )}
+        {occupation === "salaried" && (
+          <div className="space-y-1.5">
+            <Label className="text-[10px] text-muted-foreground uppercase tracking-wide">Organization (optional)</Label>
+            <Input
+              placeholder="e.g. Google, Microsoft"
+              value={organization}
+              onChange={(e) => setOrganization(e.target.value)}
+              className="h-9"
+            />
+            <p className="text-[10px] text-muted-foreground">
+              We'll check if your employer offers subscription perks or reimbursement programs.
+            </p>
+          </div>
+        )}
+
+        <Button
+          size="sm"
+          className="w-full"
+          onClick={saveProfileDetails}
+          disabled={saving}
+        >
+          {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5 mr-1" />}
+          Save details
+        </Button>
+      </div>
 
       {/* Country & Currency picker with flags */}
       <div className="glass rounded-2xl p-4">

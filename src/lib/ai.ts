@@ -234,11 +234,14 @@ export type Insight = {
   detail: string;
   potentialSaving?: number;
   provider?: string;
+  action?: "find_annual" | "find_student" | "find_alternative" | "cancel" | "downgrade" | "search_offer";
 };
 
 /**
  * Generate smart savings insights from a user's subscription list.
- * The user's currency is passed so the LLM uses correct symbols in its text.
+ * Fetches LIVE current prices via web search so insights reflect real
+ * market prices (not just what the user entered). Also uses the user's
+ * occupation (student/salaried) for curated discount suggestions.
  */
 export async function generateInsights(
   subscriptions: Array<{
@@ -250,15 +253,61 @@ export async function generateInsights(
     usageTags: string;
     currency?: string;
   }>,
-  userCurrency = "USD"
+  userCurrency = "USD",
+  userProfile?: {
+    occupation?: string | null;
+    organization?: string | null;
+    dateOfBirth?: string | null;
+  }
 ): Promise<Insight[]> {
   const zai = await getZai();
   const currencySymbol = getCurrencySymbol(userCurrency);
 
+  // ─── Fetch LIVE current prices via web search ──────────────────
+  // This makes insights genuinely useful — we compare what the user pays
+  // vs the real current market price. Limited to 3 subs for speed.
+  const livePrices: string[] = [];
+  const subsToSearch = subscriptions.slice(0, 3); // limit to 3 for speed
+  for (const sub of subsToSearch) {
+    try {
+      const results = await zai.functions.invoke("web_search", {
+        query: `${sub.provider} subscription price ${userCurrency}`,
+        num: 2,
+      });
+      if (Array.isArray(results) && results.length > 0) {
+        const snippets = results
+          .map((r: { snippet?: string }) => r.snippet || "")
+          .filter(Boolean)
+          .join(" | ");
+        if (snippets) {
+          livePrices.push(`${sub.name}: ${snippets.slice(0, 200)}`);
+        }
+      }
+    } catch {
+      // skip — insights still work without live prices
+    }
+  }
+  const livePriceContext = livePrices.length > 0
+    ? `\n\nLIVE WEB PRICES (current market data):\n${livePrices.join("\n")}`
+    : "";
+
+  // ─── Build user profile context for curated insights ───────────
+  const occupation = userProfile?.occupation;
+  const organization = userProfile?.organization;
+  let profileContext = "";
+  if (occupation === "student") {
+    profileContext += "\n\nUSER IS A STUDENT: Prioritize student discounts, education pricing, .edu email offers, Spotify Premium Student, YouTube Premium Student, Apple Music Student, Notion Education, GitHub Student Developer Pack, etc. Suggest student-specific savings.";
+  } else if (occupation === "salaried") {
+    profileContext += "\n\nUSER IS SALARIED: Suggest annual billing savings, corporate perks, and employer reimbursement programs.";
+    if (organization) {
+      profileContext += ` The user works at ${organization} — check if that company offers any subscription perks, corporate discounts, or reimbursement programs (e.g., Google employees get Google services, Microsoft employees get Microsoft 365, etc.).`;
+    }
+  }
+
   const summary = subscriptions
     .map(
       (s) =>
-        `- ${s.name} (${s.provider}) | ${s.category} | ${currencySymbol}${s.amount}/${s.billingCycle} | tags: ${s.usageTags || "none"}`
+        `- ${s.name} (${s.provider}) | ${s.category} | user pays ${currencySymbol}${s.amount}/${s.billingCycle} | tags: ${s.usageTags || "none"}`
     )
     .join("\n");
 
@@ -266,28 +315,43 @@ export async function generateInsights(
     messages: [
       {
         role: "assistant",
-        content: `You are a sharp subscription-finance advisor. Analyze the user's subscriptions and return 3-6 actionable insights as VALID JSON ONLY (no markdown). Each insight should be specific and reference their actual subscriptions.
+        content: `You are a sharp subscription-finance advisor with access to LIVE web pricing data. Analyze the user's subscriptions and return 3-6 actionable insights as VALID JSON ONLY (no markdown).
 
-CRITICAL CURRENCY RULE: The user's currency is ${userCurrency} (symbol: ${currencySymbol}). You MUST use ${currencySymbol} for EVERY amount in your insight text and titles. Do NOT use $, USD, ₹, INR, or any other currency symbol. All potentialSaving values must be in ${userCurrency}.
+You have TWO data sources:
+1. What the user PAYS (their entered amounts)
+2. LIVE web search results showing CURRENT market prices
 
-CRITICAL SAVINGS RULE: The potentialSaving for each insight must be REALISTIC and never exceed the monthly cost of the subscription(s) it references. These are ALTERNATIVE savings options (not cumulative) — the user would pick ONE, not all. For example:
-- If a subscription costs ${currencySymbol}199/mo, switching to annual might save ${currencySymbol}33/mo (2 months free / 12).
-- Finding a student discount might save ${currencySymbol}100/mo (50% off).
-- Cancelling a duplicate saves the full monthly cost.
-- Do NOT suggest savings greater than what the user actually pays.
+Use the live prices to detect: price hikes, plan mismatches (user paying for a higher tier than needed), cheaper plans available, and current promotions.
 
-${subscriptions.length === 1 ? "NOTE: The user has only 1 subscription. Focus on: annual plan savings, student/family plan discounts, price hike alerts, and cheaper alternatives. Do NOT suggest 'overlapping services' or 'bundle savings' — there's only one subscription." : "Focus on: overlapping services, price hikes, underused categories, bundle opportunities, annual vs monthly savings."}
+CRITICAL CURRENCY RULE: The user's currency is ${userCurrency} (symbol: ${currencySymbol}). You MUST use ${currencySymbol} for EVERY amount. Do NOT use $, USD, ₹, INR, or any other symbol.
+
+CRITICAL SAVINGS RULE: potentialSaving must be REALISTIC and never exceed the monthly cost. These are ALTERNATIVE options (user picks ONE). Examples:
+- Switching to annual might save ~17% (2 months free / 12)
+- Student discount typically saves 50%
+- Downgrading a plan saves the price difference
+- Do NOT suggest savings greater than what the user actually pays
+
+${subscriptions.length === 1 ? "NOTE: Only 1 subscription. Focus on: annual plan, student discounts, price hike alerts, cheaper plans (from live data). Do NOT suggest 'overlapping services'." : "Focus on: overlapping services, price hikes (compare user's price vs live price), underused categories, bundle opportunities, annual vs monthly."}
+
+Each insight should include an "action" field describing what the user can do:
+- "find_annual" → search for annual plan pricing
+- "find_student" → search for student/education discount
+- "find_alternative" → search for cheaper alternatives
+- "cancel" → cancel this subscription (link to cancel URL)
+- "downgrade" → downgrade to a cheaper plan
+- "search_offer" → search for current promo codes/deals
 
 Schema:
 [{
   "type": "saving"|"alert"|"tip"|"overlap",
   "title": string (max 60 chars),
-  "detail": string (1-2 sentences, actionable, ALL amounts in ${currencySymbol}),
-  "potentialSaving": number (realistic monthly amount saved in ${userCurrency}, 0 if none, NEVER more than the subscription's monthly cost),
-  "provider": string (relevant provider name or null)
+  "detail": string (1-2 sentences, comparing user's price vs live price where relevant, ALL amounts in ${currencySymbol}),
+  "potentialSaving": number (realistic monthly savings in ${userCurrency}, 0 if none),
+  "provider": string (relevant provider name or null),
+  "action": "find_annual"|"find_student"|"find_alternative"|"cancel"|"downgrade"|"search_offer"
 }]`,
       },
-      { role: "user", content: `My subscriptions (all amounts in ${userCurrency}, symbol ${currencySymbol}):\n${summary}` },
+      { role: "user", content: `My subscriptions (user pays these amounts in ${userCurrency}):\n${summary}${livePriceContext}${profileContext}` },
     ],
     thinking: { type: "disabled" },
   });
@@ -296,8 +360,11 @@ Schema:
   const cleaned = raw.replace(/```json/gi, "").replace(/```/g, "").trim();
   try {
     const parsed = JSON.parse(cleaned);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
+    if (Array.isArray(parsed)) return parsed;
+    console.error("[insights] LLM returned non-array:", typeof parsed);
+    return [];
+  } catch (e) {
+    console.error("[insights] JSON parse failed:", e, "raw:", raw.slice(0, 200));
     return [];
   }
 }

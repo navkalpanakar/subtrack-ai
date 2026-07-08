@@ -1,9 +1,11 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import {
-  Lightbulb, TrendingDown, AlertTriangle, Sparkles, Layers, RefreshCw, ChevronRight, type LucideIcon,
-} from "@/components/icons";
+  Lightbulb, TrendingDown, AlertTriangle, Sparkles, Layers, RefreshCw, ChevronRight,
+  type LucideIcon,
+} from "lucide-react";
 import { useInsights, useSubscriptions, type Insight } from "@/hooks/use-subscriptions";
 import { useProgress } from "@/hooks/use-gamification";
 import { Button } from "@/components/ui/button";
@@ -11,6 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { SavvyMascot } from "@/components/savvy-mascot";
 import { monthlyEquivalent } from "@/lib/format";
 import { useFormatCurrency, useCurrencyStore } from "@/hooks/use-currency-store";
+import { toast } from "sonner";
 
 const TYPE_META: Record<Insight["type"], { icon: LucideIcon; color: string; bg: string; label: string }> = {
   saving: { icon: TrendingDown, color: "text-primary", bg: "bg-primary/10", label: "Savings" },
@@ -25,6 +28,44 @@ export function InsightsView() {
   const { data: subs } = useSubscriptions();
   const { data: progress } = useProgress();
   const fmt = useFormatCurrency();
+  const [activeInsight, setActiveInsight] = useState<Insight | null>(null);
+
+  const handleAct = (insight: Insight, action: string) => {
+    const provider = insight.provider || "the subscription";
+    switch (action) {
+      case "find_annual":
+        window.open(`https://www.google.com/search?q=${encodeURIComponent(provider + " annual subscription plan price " + currency)}`, "_blank");
+        toast.success(`Searching for ${provider} annual plans…`);
+        break;
+      case "find_student":
+        window.open(`https://www.google.com/search?q=${encodeURIComponent(provider + " student discount education pricing")}`, "_blank");
+        toast.success(`Searching for ${provider} student discounts…`);
+        break;
+      case "find_alternative":
+        window.open(`https://www.google.com/search?q=${encodeURIComponent("cheaper alternatives to " + provider + " subscription")}`, "_blank");
+        toast.success(`Searching for cheaper alternatives to ${provider}…`);
+        break;
+      case "downgrade":
+        window.open(`https://www.google.com/search?q=${encodeURIComponent(provider + " downgrade plan cheaper tier")}`, "_blank");
+        toast.success(`Searching for ${provider} cheaper plans…`);
+        break;
+      case "search_offer":
+        window.open(`https://www.google.com/search?q=${encodeURIComponent(provider + " promo code discount deal " + new Date().getFullYear())}`, "_blank");
+        toast.success(`Searching for ${provider} promo codes…`);
+        break;
+      case "cancel":
+        const sub = subs?.find((s) => s.provider === insight.provider || s.name === insight.provider);
+        if (sub?.cancelUrl) {
+          window.open(sub.cancelUrl, "_blank");
+          toast.success(`Opening ${provider} cancel page…`);
+        } else {
+          window.open(`https://www.google.com/search?q=${encodeURIComponent("how to cancel " + provider + " subscription")}`, "_blank");
+          toast.success(`Searching for how to cancel ${provider}…`);
+        }
+        break;
+    }
+    setActiveInsight(null);
+  };
 
   // Show the BEST single saving opportunity, not the sum — insights are
   // alternative options (the user picks one, not all). E.g., "switch to
@@ -109,12 +150,13 @@ export function InsightsView() {
             const meta = TYPE_META[insight.type] || TYPE_META.tip;
             const Icon = meta.icon;
             return (
-              <motion.div
+              <motion.button
                 key={i}
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.05 }}
-                className="glass rounded-2xl p-4"
+                onClick={() => setActiveInsight(insight)}
+                className="glass rounded-2xl p-4 w-full text-left active:scale-[0.99] transition"
               >
                 <div className="flex items-start gap-3">
                   <div className={`h-9 w-9 rounded-xl ${meta.bg} flex items-center justify-center shrink-0`}>
@@ -134,17 +176,108 @@ export function InsightsView() {
                         About <span className="font-medium text-foreground">{insight.provider}</span>
                       </p>
                     )}
+                    {insight.action && (
+                      <div className="mt-2 inline-flex items-center gap-1 text-[11px] text-primary font-medium">
+                        Tap to act <ChevronRight className="h-3 w-3" />
+                      </div>
+                    )}
                   </div>
                 </div>
-              </motion.div>
+              </motion.button>
             );
           })}
         </div>
       )}
 
+      {/* Action sheet — opens when tapping an insight */}
+      <AnimatePresence>
+        {activeInsight && (
+          <ActionSheet
+            insight={activeInsight}
+            onClose={() => setActiveInsight(null)}
+            onAct={(action) => handleAct(activeInsight, action)}
+          />
+        )}
+      </AnimatePresence>
+
       <p className="text-[11px] text-muted-foreground text-center px-4">
-        Insights are generated by Savvy AI from your subscription data. Always verify before cancelling.
+        Insights use live web prices + your profile for curated suggestions. Always verify before cancelling.
       </p>
     </div>
+  );
+}
+
+// ─── Action sheet — opens when tapping an insight ───────────────
+function ActionSheet({
+  insight,
+  onClose,
+  onAct,
+}: {
+  insight: Insight;
+  onClose: () => void;
+  onAct: (action: string) => void;
+}) {
+  const actions: Array<{ key: string; label: string; desc: string }> = [
+    { key: "find_annual", label: "📅 Find annual plan", desc: "Search for yearly billing discounts" },
+    { key: "find_student", label: "🎓 Student discount", desc: "Check for education pricing" },
+    { key: "search_offer", label: "🏷️ Find promo codes", desc: "Search for current deals & coupons" },
+    { key: "downgrade", label: "⬇️ Downgrade plan", desc: "Find a cheaper tier" },
+    { key: "find_alternative", label: "🔄 Find alternatives", desc: "Search for cheaper substitutes" },
+    { key: "cancel", label: "✂️ Cancel subscription", desc: "Go to the cancel page" },
+  ];
+
+  // If the insight has a specific action, put it first
+  const sortedActions = insight.action
+    ? [actions.find((a) => a.key === insight.action)!, ...actions.filter((a) => a.key !== insight.action)]
+    : actions;
+
+  return (
+    <>
+      {/* Backdrop */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={onClose}
+        className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
+      />
+      {/* Sheet */}
+      <motion.div
+        initial={{ y: "100%" }}
+        animate={{ y: 0 }}
+        exit={{ y: "100%" }}
+        transition={{ type: "spring", damping: 30, stiffness: 300 }}
+        className="fixed bottom-0 inset-x-0 z-50 glass-nav rounded-t-3xl p-4 pb-8 max-w-md mx-auto"
+      >
+        <div className="w-10 h-1 rounded-full bg-muted-foreground/30 mx-auto mb-3" />
+        <h3 className="font-semibold text-sm mb-1">{insight.title}</h3>
+        <p className="text-xs text-muted-foreground mb-4 leading-relaxed">{insight.detail}</p>
+        <div className="space-y-2">
+          {sortedActions.map((a) => (
+            <button
+              key={a.key}
+              onClick={() => onAct(a.key)}
+              className={`w-full flex items-center gap-3 p-3 rounded-xl transition active:scale-[0.98] text-left ${
+                a.key === insight.action
+                  ? "bg-primary/10 border border-primary/30"
+                  : "bg-card hover:bg-accent border border-border"
+              }`}
+            >
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium">{a.label}</p>
+                <p className="text-[11px] text-muted-foreground">{a.desc}</p>
+              </div>
+              <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={onClose}
+          className="w-full mt-3 text-xs text-muted-foreground hover:text-foreground py-2"
+        >
+          Close
+        </button>
+      </motion.div>
+    </>
   );
 }

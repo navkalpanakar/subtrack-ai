@@ -13,9 +13,14 @@ export async function GET(req: NextRequest) {
   const queryCurrency = url.searchParams.get("currency");
   const user = await db.user.findUnique({
     where: { id: userId },
-    select: { currency: true },
+    select: { currency: true, occupation: true, organization: true, dateOfBirth: true },
   });
   const userCurrency = queryCurrency || user?.currency || "USD";
+  const userProfile = {
+    occupation: user?.occupation || null,
+    organization: user?.organization || null,
+    dateOfBirth: user?.dateOfBirth || null,
+  };
 
   const subs = await db.subscription.findMany({
     where: { userId, status: "active" },
@@ -34,7 +39,8 @@ export async function GET(req: NextRequest) {
 
   const insights = await generateInsights(
     subs.map((s) => ({ ...s, amount: Number(s.amount), currency: userCurrency })),
-    userCurrency
+    userCurrency,
+    userProfile
   );
 
   // Gamification: reward curiosity
