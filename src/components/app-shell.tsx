@@ -33,7 +33,7 @@ export function AppShell() {
   return (
     <div className="relative min-h-screen flex flex-col bg-background safe-top">
       {/* Header */}
-      <header className="sticky top-0 z-30 glass safe-top">
+      <header className="sticky top-0 z-30 glass-nav safe-top">
         <div className="mx-auto max-w-md px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center">
@@ -92,7 +92,7 @@ export function AppShell() {
       {/* Bottom navigation with center FAB */}
       <nav className="fixed bottom-0 inset-x-0 z-40 safe-bottom">
         <div className="mx-auto max-w-md px-4 pb-3">
-          <div className="glass rounded-2xl shadow-lg shadow-black/5 px-2 h-16 flex items-center justify-between relative">
+          <div className="glass-nav rounded-2xl shadow-lg shadow-black/5 px-2 h-16 flex items-center justify-between relative">
             {TABS.slice(0, 2).map((t) => (
               <NavButton key={t.id} tab={t} active={tab === t.id} onClick={() => setTab(t.id)} />
             ))}

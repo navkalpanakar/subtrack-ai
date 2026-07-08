@@ -16,13 +16,82 @@ import { useFormatCurrency } from "@/hooks/use-currency-store";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
-const SAVVY_TIPS = [
-  "I noticed 3 streaming subs — consider sharing a family plan to save up to 40%.",
-  "Your Adobe renewal is in 3 weeks. Cancel now to avoid the next $59.99 charge.",
-  "You're paying yearly for Prime — that's $12/mo equivalent. Smart choice!",
-  "ChatGPT Plus renews soon. Want me to find a student or annual discount?",
-  "Three of your apps overlap on music. Cutting one saves ~$120/yr.",
-];
+// Generate a tip based on the user's ACTUAL subscriptions (not hardcoded).
+function generateTip(subs: Subscription[], fmt: (n: number) => string): string {
+  if (!subs || subs.length === 0) {
+    return "Add your subscriptions and I'll start finding personalized savings for you!";
+  }
+  const active = subs.filter((s) => s.status === "active");
+  if (active.length === 0) return "All your subscriptions are cancelled — nice work saving money!";
+
+  // Group by category to find overlaps
+  const byCategory = new Map<string, Subscription[]>();
+  for (const s of active) {
+    const arr = byCategory.get(s.category) || [];
+    arr.push(s);
+    byCategory.set(s.category, arr);
+  }
+
+  // Find next renewal (within 7 days)
+  const upcoming = active
+    .filter((s) => daysUntil(s.nextBillingDate) >= 0 && daysUntil(s.nextBillingDate) <= 7)
+    .sort((a, b) => daysUntil(a.nextBillingDate) - daysUntil(b.nextBillingDate));
+
+  // Find category overlaps (2+ in same category)
+  const overlaps = [...byCategory.entries()].filter(([, arr]) => arr.length >= 2);
+
+  // Find yearly subscriptions (smart choice tip)
+  const yearly = active.filter((s) => s.billingCycle === "yearly");
+
+  // Most expensive subscription
+  const mostExpensive = [...active].sort((a, b) => Number(b.amount) - Number(a.amount))[0];
+
+  // Pick a tip based on available data — rotate daily so it varies
+  const tips: string[] = [];
+
+  if (upcoming.length > 0) {
+    const next = upcoming[0];
+    const days = daysUntil(next.nextBillingDate);
+    tips.push(
+      `${next.name} renews in ${days === 0 ? "today" : days === 1 ? "tomorrow" : `${days} days`}. ` +
+      `Cancel now to avoid the ${fmt(Number(next.amount))} charge and earn +50 points!`
+    );
+  }
+
+  if (overlaps.length > 0) {
+    const [cat, arr] = overlaps[0];
+    const names = arr.map((s) => s.name).join(" + ");
+    tips.push(
+      `You have ${arr.length} ${cat} subscriptions (${names}). Cutting one could save ` +
+      `${fmt(arr.reduce((sum, s) => sum + monthlyEquivalent(Number(s.amount), s.billingCycle), 0))}/mo.`
+    );
+  }
+
+  if (yearly.length > 0) {
+    const y = yearly[0];
+    const monthlyEq = monthlyEquivalent(Number(y.amount), "yearly");
+    tips.push(
+      `You're paying yearly for ${y.name} — that's ${fmt(monthlyEq)}/mo equivalent. Smart choice, you're saving vs monthly!`
+    );
+  }
+
+  if (mostExpensive && Number(mostExpensive.amount) > 20) {
+    tips.push(
+      `${mostExpensive.name} is your most expensive sub at ${fmt(Number(mostExpensive.amount))}/${mostExpensive.billingCycle}. ` +
+      `Want me to find a cheaper alternative or student discount?`
+    );
+  }
+
+  // Fallback: general tip
+  if (tips.length === 0) {
+    const monthly = active.reduce((sum, s) => sum + monthlyEquivalent(Number(s.amount), s.billingCycle), 0);
+    tips.push(`You're spending ${fmt(monthly)}/mo on ${active.length} subscriptions. Tap AI for personalized savings tips!`);
+  }
+
+  // Rotate daily
+  const idx = new Date().getDate() % tips.length;
+  return tips[idx];
+}
 
 export function DashboardView() {
   const { data: subs, isLoading } = useSubscriptions();
@@ -42,10 +111,7 @@ export function DashboardView() {
     return { monthly, yearly, active: active.length, upcoming };
   }, [subs]);
 
-  const tipOfTheDay = useMemo(() => {
-    const idx = new Date().getDate() % SAVVY_TIPS.length;
-    return SAVVY_TIPS[idx];
-  }, []);
+  const tipOfTheDay = useMemo(() => generateTip(subs || [], fmt), [subs, fmt]);
 
   if (isLoading) {
     return (

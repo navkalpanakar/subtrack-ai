@@ -15,7 +15,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { CATEGORIES, formatCurrency, monthlyEquivalent } from "@/lib/format";
+import { CATEGORIES, monthlyEquivalent } from "@/lib/format";
+import { useFormatCurrency } from "@/hooks/use-currency-store";
 
 type SortKey = "renewal" | "amount" | "name";
 type Filter = "all" | "active" | "cancelled";
@@ -24,6 +25,7 @@ export function SubscriptionsView() {
   const { data: subs, isLoading } = useSubscriptions();
   const deleteSub = useDeleteSubscription();
   const { setQuickAddOpen, setEditTarget, setEditOpen } = useUI();
+  const fmt = useFormatCurrency();
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<SortKey>("renewal");
   const [filter, setFilter] = useState<Filter>("all");
@@ -79,7 +81,7 @@ export function SubscriptionsView() {
         <div>
           <h1 className="font-bold text-xl tracking-tight">Subscriptions</h1>
           <p className="text-xs text-muted-foreground">
-            {filtered.length} shown · {formatCurrency(totalMonthly)}/mo
+            {filtered.length} shown · {fmt(totalMonthly)}/mo
           </p>
         </div>
         <Button size="sm" onClick={() => setQuickAddOpen(true)} className="rounded-full">

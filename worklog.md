@@ -518,3 +518,38 @@ Stage Summary:
 - Savvy now catches typos and partial names in real-time as the user types or speaks.
 - Suggestions appear as clickable chips — one tap fixes the text.
 - Saves time for both user (no manual correction) and the system (AI parses clean input → fewer re-parses).
+
+---
+Task ID: 15
+Agent: main
+Task: Fix dynamic Savvy tips (no ChatGPT for users who don't have it), fix Subscriptions page currency inconsistency, enhance glassmorphism on nav bars
+
+Work Log:
+- Fix 1: "Savvy says" tips are now DYNAMIC — generated from the user's actual subscriptions:
+  * Replaced hardcoded SAVVY_TIPS array with generateTip(subs, fmt) function
+  * Generates tips based on: upcoming renewals (within 7 days), category overlaps (2+ in same category), yearly subscriptions (smart choice), most expensive subscription, and a general fallback
+  * All amounts use the user's currency (fmt function)
+  * Only references subscriptions the user actually has — no more "ChatGPT Plus renews soon" for users who don't have ChatGPT
+  * Rotates daily between available tips
+- Fix 2: Subscriptions page header currency — was using formatCurrency (hardcoded USD), now uses useFormatCurrency() (global INR):
+  * Replaced import: formatCurrency → useFormatCurrency hook
+  * Header total now shows ₹345.03/mo (INR) matching the card amounts below
+  * No more $ in header + ₹ in cards inconsistency
+- Fix 3: Enhanced glassmorphism on header + bottom nav:
+  * New .glass-nav CSS class: 35% opacity (light) / 40% (dark), 32px blur, 200% saturation
+  * Old .glass: 45% opacity, 24px blur (still used for cards)
+  * Header: changed from .glass to .glass-nav (more transparent, stronger blur)
+  * Bottom nav: changed from .glass to .glass-nav
+  * Added subtle box-shadow for depth
+  * VLM-rated 8/10: "strong glassmorphism, with good clarity of both navigation and background content"
+
+Verification (Agent Browser):
+- Savvy tip: "Notion Plus Pro renews in today. Cancel now to avoid the ₹10.00 charge" — references actual subscription + correct currency ✓
+- Subscriptions page header: "shown · ₹345.03/mo" (INR, matches cards) ✓
+- Glassmorphism: VLM-confirmed frosted effect on both nav bars, content visible blurred behind ✓
+- Zero errors, lint clean.
+
+Stage Summary:
+- Savvy tips are now personalized to the user's actual subscriptions — no more mentioning services they don't have.
+- Currency is consistent everywhere (₹ across dashboard, subscriptions, insights, cards).
+- iOS-style frosted glass on both nav bars (8/10 glassmorphism rating).
