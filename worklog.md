@@ -763,3 +763,52 @@ Verification:
 - Server responds 200
 - Demo login still works (localized prices)
 - Email OTP still works (preview mode shows code, production sends real email)
+
+---
+Task ID: 22
+Agent: main
+Task: Production audit + payment system (Stripe freemium) + .env for subtrack.scanmymenu.in + privacy/terms pages + Oracle Cloud deployment guide
+
+Work Log:
+- Production audit: lint clean, 40 API routes, server 200, preview routes removed ✓
+- Payment system added:
+  * User model: plan (free|premium), stripeCustomerId, stripeSubscriptionId, premiumExpiresAt
+  * /api/stripe/checkout — creates Stripe Checkout session for Premium upgrade
+  * /api/stripe/webhook — handles subscription events (created/deleted/invoice paid)
+  * /api/stripe/portal — opens Stripe Customer Portal for managing/cancelling
+  * /api/account/plan — returns user's plan + limits (free=3 subs, premium=unlimited)
+  * Freemium limit enforced in POST /api/subscriptions (returns 402 when free limit reached)
+  * PremiumCard component in Profile: shows upgrade CTA with feature list, Stripe checkout redirect, "Manage subscription" for premium users
+- .env file created for subtrack.scanmymenu.in domain with all required vars (Google, Microsoft, Apple, Resend, Stripe)
+- Privacy Policy page (/privacy) — comprehensive, covers data collection, third-party services, user rights, GDPR
+- Terms of Service page (/terms) — covers freemium plans, AI disclaimer, user responsibilities, liability
+- Oracle Cloud deployment guide (ORACLE-DEPLOYMENT.md) — step-by-step for 1GB RAM server:
+  * Swap space setup (CRITICAL for Next.js build on 1GB RAM)
+  * Node.js + Bun + PM2 + Nginx + Certbot installation
+  * Build with NODE_OPTIONS for memory limit
+  * Nginx reverse proxy config
+  * Free SSL via Let's Encrypt/Certbot
+  * DNS A record setup
+  * OAuth redirect URI updates
+  * Stripe webhook setup
+  * Maintenance commands
+  * Freemium model table
+
+Files created/modified:
+- .env (updated with Stripe vars + subtrack.scanmymenu.in domain)
+- prisma/schema.prisma (added plan, stripeCustomerId, stripeSubscriptionId, premiumExpiresAt)
+- src/app/api/stripe/checkout/route.ts (NEW)
+- src/app/api/stripe/webhook/route.ts (NEW)
+- src/app/api/stripe/portal/route.ts (NEW)
+- src/app/api/account/plan/route.ts (NEW)
+- src/app/api/subscriptions/route.ts (added freemium limit check)
+- src/components/views/profile.tsx (added PremiumCard component)
+- src/app/privacy/page.tsx (NEW — full privacy policy)
+- src/app/terms/page.tsx (NEW — full terms of service)
+- ORACLE-DEPLOYMENT.md (NEW — complete Oracle Cloud guide)
+
+Stage Summary:
+- App is production-ready: lint clean, 40 routes, 3 pages, Stripe payments, privacy/terms.
+- .env configured for subtrack.scanmymenu.in.
+- Oracle Cloud guide covers everything from SSH to SSL.
+- Freemium model: free (3 subs) → premium ($4.99/mo or ₹99/mo, unlimited).

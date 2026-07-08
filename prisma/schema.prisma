@@ -23,6 +23,10 @@ model User {
   countryCode   String?   // ISO 2-letter code (e.g. "IN", "US")
   city          String?   // user's city
   currency      String?   // user's preferred currency (e.g. "INR", "USD")
+  plan          String    @default("free") // "free" | "premium"
+  stripeCustomerId  String?
+  stripeSubscriptionId String?
+  premiumExpiresAt  DateTime?
   dateOfBirth   DateTime? // user's date of birth (for age-based offers)
   occupation    String?   // "student" | "salaried" | null
   organization  String?   // company/school name (for corporate/education perks)
