@@ -41,7 +41,7 @@ export function LoginScreen() {
   const handleGoogle = () => {
     if (oauthProviders.has("google")) {
       setLoading("google");
-      signIn("google", { callbackUrl: "/" });
+      signIn("google", { callbackUrl: "/auth-bridge" });
     } else {
       toast.error("Google sign-in is not configured yet. Use email or demo for now.");
     }
