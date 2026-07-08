@@ -3,6 +3,7 @@
 import { useRef, useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { ExternalLink, Sparkles, Loader2 } from "@/components/icons";
+import { CheckCircle2 } from "lucide-react";
 import { useScratchReward, type RedeemedReward } from "@/hooks/use-gamification";
 import { Button } from "@/components/ui/button";
 
@@ -115,7 +116,13 @@ export function ScratchCard({
             </span>
           </div>
         </div>
-        {!revealed && <span className="text-[10px] text-muted-foreground">{scratchPct}% scratched</span>}
+        {revealed ? (
+          <span className="text-[10px] font-semibold text-primary flex items-center gap-1">
+            <CheckCircle2 className="h-3 w-3" /> Revealed
+          </span>
+        ) : (
+          <span className="text-[10px] text-muted-foreground">{scratchPct}% scratched</span>
+        )}
       </div>
 
       <div className="relative aspect-[2/1] rounded-xl overflow-hidden bg-gradient-to-br from-primary/10 to-amber-400/10">
@@ -167,10 +174,14 @@ export function ScratchCard({
         )}
       </div>
 
-      {!revealed && (
+      {!revealed ? (
         <Button variant="ghost" size="sm" className="w-full mt-2 text-xs h-8" onClick={reveal}>
           Reveal without scratching
         </Button>
+      ) : (
+        <p className="text-[10px] text-muted-foreground text-center mt-2">
+          ✅ Card revealed — unlock another from the rewards above to scratch again
+        </p>
       )}
     </div>
   );

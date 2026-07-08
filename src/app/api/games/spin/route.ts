@@ -77,9 +77,21 @@ export async function GET(req: NextRequest) {
   const existing = await db.spinResult.findUnique({
     where: { userId_date: { userId, date: today } },
   });
+
+  // Calculate when the next spin is available (midnight local time = next day)
+  let nextSpinAt: string | null = null;
+  if (existing) {
+    const now = new Date();
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(0, 0, 0, 0);
+    nextSpinAt = tomorrow.toISOString();
+  }
+
   return NextResponse.json({
     canSpin: !existing,
     todayPoints: existing?.points || 0,
+    nextSpinAt,
     wheel: WHEEL,
   });
 }

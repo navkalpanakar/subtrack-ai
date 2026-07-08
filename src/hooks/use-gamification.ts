@@ -78,6 +78,7 @@ export type LinkedAccounts = {
 export type SpinState = {
   canSpin: boolean;
   todayPoints: number;
+  nextSpinAt: string | null;
   wheel: number[];
 };
 

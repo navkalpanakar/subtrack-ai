@@ -1,17 +1,14 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Loader2, Sparkles } from "lucide-react";
+import { Loader2, Sparkles, Clock } from "lucide-react";
 import { useSpinState, useSpin } from "@/hooks/use-gamification";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
 // Daily spin-the-wheel built with SVG arcs for accurate segment placement.
-// The pointer is at the TOP (12 o'clock). The wheel rotates clockwise.
-// For segment i (center at angle i*seg + seg/2, measured clockwise from top),
-// we rotate the wheel by R so that the segment center lands under the pointer:
-//   R = 360*n - (i*seg + seg/2)   (n = full rotations for effect)
+// One free spin per 24 hours. Shows a live countdown timer when already spun.
 export function SpinWheel() {
   const { data: spinState } = useSpinState();
   const spin = useSpin();
@@ -20,21 +17,39 @@ export function SpinWheel() {
   const [spinning, setSpinning] = useState(false);
   const pendingResult = useRef<{ points: number; index: number } | null>(null);
 
+  // Countdown timer for next spin
+  const [timeLeft, setTimeLeft] = useState("");
+  useEffect(() => {
+    if (!spinState?.nextSpinAt) return;
+    const update = () => {
+      const target = new Date(spinState.nextSpinAt!).getTime();
+      const now = Date.now();
+      const diff = target - now;
+      if (diff <= 0) {
+        setTimeLeft("Available now!");
+        return;
+      }
+      const hours = Math.floor(diff / 3600000);
+      const minutes = Math.floor((diff % 3600000) / 60000);
+      const seconds = Math.floor((diff % 60000) / 1000);
+      setTimeLeft(`${hours}h ${minutes}m ${seconds}s`);
+    };
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, [spinState?.nextSpinAt]);
+
   const wheel = spinState?.wheel || [5, 10, 15, 20, 25, 50, 100, 200];
   const seg = 360 / wheel.length;
 
   const handleSpin = async () => {
     setResult(null);
     setSpinning(true);
-    // Phase 1: dry-spin — get the result WITHOUT awarding points yet.
-    // This lets us animate the wheel before the balance updates.
     const res = await spin.mutateAsync(false);
     if (res.spun && res.index !== undefined) {
       pendingResult.current = { points: res.points, index: res.index };
-      // Rotate so the winning segment's CENTER lands under the top pointer.
       const target = 360 * 5 - (res.index * seg + seg / 2);
       setRotation(target);
-      // Phase 2 (claim) fires on animation complete
     } else {
       setSpinning(false);
     }
@@ -46,7 +61,6 @@ export function SpinWheel() {
       setResult(points);
       setSpinning(false);
       pendingResult.current = null;
-      // Phase 2: NOW claim the points (awards them + invalidates balance).
       await spin.mutateAsync(true);
       toast.success(`🎉 You won ${points} points!`, {
         description: "Points added to your balance",
@@ -63,7 +77,6 @@ export function SpinWheel() {
   const cx = 90;
   const cy = 90;
 
-  // Build an SVG arc path for a wedge from startAngle to endAngle (degrees, clockwise from top)
   const arcPath = (startDeg: number, endDeg: number) => {
     const toRad = (d: number) => ((d - 90) * Math.PI) / 180;
     const x1 = cx + radius * Math.cos(toRad(startDeg));
@@ -74,6 +87,8 @@ export function SpinWheel() {
     return `M ${cx} ${cy} L ${x1} ${y1} A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2} Z`;
   };
 
+  const hasSpun = !spinState?.canSpin && spinState?.todayPoints !== undefined;
+
   return (
     <div className="glass rounded-2xl p-4">
       <div className="flex items-center justify-between mb-3">
@@ -82,17 +97,19 @@ export function SpinWheel() {
           Daily Spin
         </h3>
         <span className="text-[10px] text-muted-foreground">
-          {spinState?.canSpin ? "1 free spin today!" : `Won ${spinState?.todayPoints} pts today`}
+          {spinState?.canSpin
+            ? "1 free spin today!"
+            : `Won ${spinState?.todayPoints || 0} pts today`}
         </span>
       </div>
 
       <div className="relative mx-auto w-48 h-48 mb-3">
-        {/* Pointer — fixed at top, pointing down into the wheel */}
+        {/* Pointer */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 z-20">
           <div className="w-0 h-0 border-l-[9px] border-l-transparent border-r-[9px] border-r-transparent border-t-[16px] border-t-foreground drop-shadow" />
         </div>
 
-        {/* Wheel — SVG with arc segments */}
+        {/* Wheel */}
         <motion.div
           className="w-full h-full"
           animate={{ rotate: rotation }}
@@ -100,13 +117,11 @@ export function SpinWheel() {
           onAnimationComplete={handleAnimationComplete}
         >
           <svg viewBox="0 0 180 180" className="w-full h-full">
-            {/* Outer ring */}
             <circle cx={cx} cy={cy} r={radius + 4} fill="none" stroke="currentColor" strokeWidth={2} className="text-primary/30" />
             {wheel.map((pts, i) => {
               const startDeg = i * seg;
               const endDeg = (i + 1) * seg;
               const midDeg = startDeg + seg / 2;
-              // Place the number at the segment center, ~60% out from center
               const toRad = (d: number) => ((d - 90) * Math.PI) / 180;
               const labelR = radius * 0.65;
               const lx = cx + labelR * Math.cos(toRad(midDeg));
@@ -142,7 +157,7 @@ export function SpinWheel() {
         </div>
       </div>
 
-      {/* Result — shows where the pointer stopped */}
+      {/* Result */}
       {result !== null && (
         <motion.div
           initial={{ scale: 0, opacity: 0 }}
@@ -153,19 +168,37 @@ export function SpinWheel() {
         </motion.div>
       )}
 
-      <Button
-        onClick={handleSpin}
-        disabled={!spinState?.canSpin || spin.isPending || spinning}
-        className="w-full"
-      >
-        {spin.isPending || spinning ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : spinState?.canSpin ? (
-          "Spin now (free)"
-        ) : (
-          "Come back tomorrow"
-        )}
-      </Button>
+      {/* Spin button OR countdown timer */}
+      {spinState?.canSpin ? (
+        <Button
+          onClick={handleSpin}
+          disabled={!spinState?.canSpin || spin.isPending || spinning}
+          className="w-full"
+        >
+          {spin.isPending || spinning ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            "Spin now (free)"
+          )}
+        </Button>
+      ) : (
+        <div className="space-y-2">
+          {/* Countdown timer */}
+          <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 p-3 text-center">
+            <div className="flex items-center justify-center gap-1.5 text-amber-600 dark:text-amber-400 mb-1">
+              <Clock className="h-3.5 w-3.5" />
+              <span className="text-[10px] font-semibold uppercase tracking-wide">Next spin in</span>
+            </div>
+            <p className="text-lg font-bold text-amber-600 dark:text-amber-400 tabular-nums">
+              {timeLeft || "Loading..."}
+            </p>
+          </div>
+          <Button disabled className="w-full opacity-60">
+            <Clock className="h-4 w-4 mr-2" />
+            Come back tomorrow
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
