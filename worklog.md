@@ -358,3 +358,19 @@ Stage Summary:
 - Auth actually works: clicking Google/Microsoft/Apple signs the user in, creates their account, links the provider, and takes them to the dashboard.
 - In preview (no env vars): uses the preview OAuth flow. In production (with env vars): uses real NextAuth OAuth with consent screens.
 - The smart detection means there's no code change needed when moving to production — just add the env vars and the real OAuth flow takes over automatically.
+
+---
+Task ID: 10
+Agent: main
+Task: Add splash screen + deployment readiness audit
+
+Work Log:
+- SplashScreen component: animated brand reveal with Savvy mascot (spring bounce-in + float), "SubTrack AI" title, loading dots, ambient gradient orbs, "Powered by Savvy AI" footer. Framer Motion throughout.
+- RootGate updated: shows splash during auth loading + minimum 1.6s display window (feels intentional, not a flash), then transitions to login or dashboard.
+- Created .env.example with all required env vars documented (NextAuth, Google, Microsoft, Apple) + redirect URIs + setup instructions.
+- Deployment audit: 0 errors, lint clean, 39 API routes, 5 views, PWA manifest + SVG icons, output: "standalone" build, no hardcoded localhost URLs in code.
+
+Stage Summary:
+- Splash screen added and verified.
+- App is deployment-ready pending env vars (NEXTAUTH_SECRET, NEXTAUTH_URL, OAuth credentials).
+- SQLite works for preview/low-traffic; PostgreSQL recommended for production.
