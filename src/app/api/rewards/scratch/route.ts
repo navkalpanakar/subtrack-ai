@@ -13,6 +13,11 @@ export async function POST(req: NextRequest) {
   if (!redeemedRewardId)
     return NextResponse.json({ error: "redeemedRewardId required" }, { status: 400 });
 
+  // Get the user's currency for region-aware offer search
+  const user = await db.user.findUnique({ where: { id: userId }, select: { currency: true, countryCode: true } });
+  const userCurrency = user?.currency || "USD";
+  const userCountry = user?.countryCode || "";
+
   const rr = await db.redeemedReward.findFirst({
     where: { id: redeemedRewardId, userId },
     include: { reward: true },
@@ -22,17 +27,14 @@ export async function POST(req: NextRequest) {
   if (rr.revealed)
     return NextResponse.json({ alreadyRevealed: true, offerTitle: rr.offerTitle, offerUrl: rr.offerUrl, offerDetail: rr.offerDetail });
 
-  // Try to fetch a live offer from the web for the given provider (or a
-  // generic subscription deal). Falls back to a curated offer.
   let offerTitle = rr.reward.title + " Unlocked!";
   let offerUrl = "https://www.google.com/search?q=subscription+deals+coupons";
   let offerDetail = rr.reward.detail;
 
   try {
-    const query = provider
-      ? `${provider} subscription discount coupon deal 2025`
-      : "best subscription deals discounts coupons 2025";
-    const offers = await findProviderOffers(provider || "streaming subscription");
+    // Search with the user's currency + country for local deals
+    const searchProvider = provider || "streaming subscription";
+    const offers = await findProviderOffers(`${searchProvider} ${userCurrency} ${userCountry}`);
     if (offers.length > 0) {
       const pick = offers[Math.floor(Math.random() * Math.min(3, offers.length))];
       offerTitle = pick.title;

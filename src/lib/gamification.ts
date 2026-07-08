@@ -214,9 +214,17 @@ export async function ensureRewardsSeeded() {
 export async function ensureUserProgress(userId: string) {
   await ensureChallengesSeeded();
   await ensureRewardsSeeded();
+  // Get the user's currency to set a meaningful savings goal
+  const user = await db.user.findUnique({ where: { id: userId }, select: { currency: true } });
+  const currency = user?.currency || "USD";
+  const SAVINGS_GOALS: Record<string, number> = {
+    INR: 5000, USD: 100, GBP: 75, EUR: 80, AUD: 150, CAD: 130,
+    JPY: 15000, KRW: 150000, CNY: 700, SGD: 150, AED: 400, BRL: 500,
+  };
+  const goal = SAVINGS_GOALS[currency] || 100;
   await db.userProgress.upsert({
     where: { userId },
     update: {},
-    create: { userId },
+    create: { userId, savingsGoal: goal },
   });
 }
