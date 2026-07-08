@@ -21,10 +21,15 @@ export async function POST(req: NextRequest) {
 
   await ensureUserProgress(userId);
 
-  // Freemium limit: free users can add max 3 subscriptions
-  const user = await db.user.findUnique({ where: { id: userId }, select: { plan: true, premiumExpiresAt: true } });
+  // Freemium limit: only USA users have the 3-subscription free limit.
+  // All other countries are completely free (no limit, no Premium prompt).
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: { plan: true, premiumExpiresAt: true, countryCode: true },
+  });
   const isPremium = user?.plan === "premium" && (!user?.premiumExpiresAt || user.premiumExpiresAt > new Date());
-  if (!isPremium) {
+  const isUS = user?.countryCode === "US";
+  if (!isPremium && isUS) {
     const subCount = await db.subscription.count({ where: { userId, status: "active" } });
     if (subCount >= 3) {
       return NextResponse.json(

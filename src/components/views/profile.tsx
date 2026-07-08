@@ -724,7 +724,7 @@ function FieldRow({
 
 // ─── Premium Upgrade Card ───────────────────────────────────────
 function PremiumCard() {
-  const [plan, setPlan] = useState<{ plan: string; subscriptionCount: number; freeLimit: number; canAddMore: boolean } | null>(null);
+  const [plan, setPlan] = useState<{ plan: string; subscriptionCount: number; freeLimit: number | null; canAddMore: boolean; showPremium: boolean } | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -733,6 +733,9 @@ function PremiumCard() {
       .then(setPlan)
       .catch(() => {});
   }, []);
+
+  // Hide Premium card entirely for non-USA users (completely free)
+  if (plan && !plan.showPremium) return null;
 
   const handleUpgrade = async () => {
     setLoading(true);

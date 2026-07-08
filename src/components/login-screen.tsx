@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles, Mail, Loader2, ArrowLeft, MessageSquare } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { SavvyMascot } from "./savvy-mascot";
-import { GoogleLogo, MicrosoftLogo, AppleLogo } from "./brand-logos";
+import { GoogleLogo } from "./brand-logos";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,14 +38,12 @@ export function LoginScreen() {
   // OAuth handler — uses real NextAuth OAuth. Requires env vars to be set.
   // If not configured, shows a helpful toast telling the user to sign in
   // with email or demo instead.
-  const handleOAuth = (provider: "google" | "microsoft" | "apple") => {
-    const nextAuthId =
-      provider === "google" ? "google" : provider === "microsoft" ? "azure-ad" : "apple";
-    if (oauthProviders.has(nextAuthId)) {
-      setLoading(provider);
-      signIn(nextAuthId, { callbackUrl: "/" });
+  const handleGoogle = () => {
+    if (oauthProviders.has("google")) {
+      setLoading("google");
+      signIn("google", { callbackUrl: "/" });
     } else {
-      toast.error(`${provider === "google" ? "Google" : provider === "microsoft" ? "Microsoft" : "Apple"} sign-in is not configured yet. Use email or demo for now.`);
+      toast.error("Google sign-in is not configured yet. Use email or demo for now.");
     }
   };
 
@@ -162,27 +160,19 @@ export function LoginScreen() {
                   <div className="h-px bg-border flex-1" />
                 </div>
 
-                {/* OAuth providers with real brand logos */}
-                <div className="grid grid-cols-3 gap-2">
-                  <OAuthButton
-                    label="Google"
-                    onClick={() => handleOAuth("google")}
-                    loading={loading === "google"}
-                    logo={<GoogleLogo className="h-5 w-5" />}
-                  />
-                  <OAuthButton
-                    label="Microsoft"
-                    onClick={() => handleOAuth("microsoft")}
-                    loading={loading === "microsoft"}
-                    logo={<MicrosoftLogo className="h-5 w-5" />}
-                  />
-                  <OAuthButton
-                    label="Apple"
-                    onClick={() => handleOAuth("apple")}
-                    loading={loading === "apple"}
-                    logo={<AppleLogo className="h-5 w-5" />}
-                  />
-                </div>
+                {/* Google OAuth */}
+                <button
+                  onClick={handleGoogle}
+                  disabled={loading !== null}
+                  className="w-full h-12 rounded-xl border border-border bg-card hover:bg-accent font-medium flex items-center justify-center gap-3 active:scale-[0.98] transition disabled:opacity-60"
+                >
+                  {loading === "google" ? (
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  ) : (
+                    <GoogleLogo className="h-5 w-5" />
+                  )}
+                  Continue with Google
+                </button>
 
                 <button
                   onClick={handleDemo}
@@ -198,7 +188,7 @@ export function LoginScreen() {
                 </button>
 
                 <p className="text-[10px] text-muted-foreground text-center mt-3">
-                  Email verification required · link more accounts later in Profile
+                  Email verification required · Google sign-in available
                 </p>
               </motion.div>
             )}
@@ -295,30 +285,6 @@ export function LoginScreen() {
         </motion.div>
       </main>
     </div>
-  );
-}
-
-// OAuth button with real brand logo
-function OAuthButton({
-  label, onClick, loading, logo,
-}: {
-  label: string; onClick: () => void; loading: boolean; logo: React.ReactNode;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={loading}
-      className="h-12 rounded-xl border border-border bg-card hover:bg-accent flex flex-col items-center justify-center gap-0.5 active:scale-[0.97] transition disabled:opacity-60"
-    >
-      {loading ? (
-        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-      ) : (
-        <div className="h-5 w-5 flex items-center justify-center">
-          {logo}
-        </div>
-      )}
-      <span className="text-[10px] font-medium">{label}</span>
-    </button>
   );
 }
 

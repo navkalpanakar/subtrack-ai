@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
 
   const user = await db.user.findUnique({
     where: { id: userId },
-    select: { plan: true, premiumExpiresAt: true },
+    select: { plan: true, premiumExpiresAt: true, countryCode: true },
   });
 
   const subCount = await db.subscription.count({ where: { userId, status: "active" } });
@@ -18,12 +18,17 @@ export async function GET(req: NextRequest) {
   const isPremium = user?.plan === "premium";
   const isExpired = user?.premiumExpiresAt ? user.premiumExpiresAt < new Date() : false;
   const effectivePlan = isPremium && !isExpired ? "premium" : "free";
+  const isUS = user?.countryCode === "US";
+
+  // Only USA has the freemium limit. All other countries are completely free.
+  const hasLimit = isUS && effectivePlan !== "premium";
 
   return NextResponse.json({
     plan: effectivePlan,
     premiumExpiresAt: user?.premiumExpiresAt,
     subscriptionCount: subCount,
-    freeLimit: FREE_LIMIT,
-    canAddMore: effectivePlan === "premium" || subCount < FREE_LIMIT,
+    freeLimit: hasLimit ? FREE_LIMIT : null,
+    canAddMore: !hasLimit || subCount < FREE_LIMIT,
+    showPremium: isUS, // only show Premium upgrade card for USA users
   });
 }

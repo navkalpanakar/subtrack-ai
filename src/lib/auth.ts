@@ -1,21 +1,13 @@
 import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
-import AzureADProvider from "next-auth/providers/azure-ad";
-import AppleProvider from "next-auth/providers/apple";
 import { db } from "./db";
 
-// Google, Microsoft (Azure AD) and Apple OAuth are all auto-enabled when
-// their env vars are present — so users can one-tap auth with any of the
-// big three email providers to sync subscriptions. A guest/demo provider
-// is always available so the app works today without external creds.
+// Google OAuth is enabled when env vars are present.
+// Email OTP is the primary auth method (always available).
+// Demo is for testing.
 const googleClientId = process.env.GOOGLE_CLIENT_ID;
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
-const msClientId = process.env.AZURE_AD_CLIENT_ID;
-const msClientSecret = process.env.AZURE_AD_CLIENT_SECRET;
-const msTenant = process.env.AZURE_AD_TENANT_ID || "common";
-const appleClientId = process.env.APPLE_CLIENT_ID;
-const appleClientSecret = process.env.APPLE_CLIENT_SECRET;
 
 const providers: NextAuthOptions["providers"] = [
   CredentialsProvider({
@@ -42,27 +34,6 @@ if (googleClientId && googleClientSecret) {
     GoogleProvider({
       clientId: googleClientId,
       clientSecret: googleClientSecret,
-      allowDangerousEmailAccountLinking: true,
-    })
-  );
-}
-
-if (msClientId && msClientSecret) {
-  providers.unshift(
-    AzureADProvider({
-      clientId: msClientId,
-      clientSecret: msClientSecret,
-      tenantId: msTenant,
-      allowDangerousEmailAccountLinking: true,
-    })
-  );
-}
-
-if (appleClientId && appleClientSecret) {
-  providers.unshift(
-    AppleProvider({
-      clientId: appleClientId,
-      clientSecret: appleClientSecret,
       allowDangerousEmailAccountLinking: true,
     })
   );
