@@ -622,3 +622,38 @@ Stage Summary:
 - When the user selects India, everything shows ₹ including the AI Insights page.
 - The AI Insights now re-fetch automatically when the currency changes (reactive query key).
 - The LLM is explicitly forbidden from using any symbol other than the user's currency.
+
+---
+Task ID: 18
+Agent: main
+Task: Fix incorrect "Potential monthly savings" calculation — was summing alternative options (₹218 on a ₹199 subscription)
+
+Work Log:
+- Bug: The Insights view summed ALL potentialSaving values from every insight:
+  `const totalSavings = insights.reduce((sum, i) => sum + i.potentialSaving, 0)`
+  But insights are ALTERNATIVE options (switch to annual OR find a student discount OR cancel) — the user picks ONE, not all. Summing them produced impossible amounts (₹218 savings on a ₹199/mo subscription).
+- Also: The LLM generated unrealistic savings amounts because the prompt said "estimated monthly USD saved" with no cap.
+- Fix 1 — Insights view (src/components/views/insights.tsx):
+  * Changed from sum to MAX: `insights.reduce((max, i) => Math.max(max, i.potentialSaving || 0), 0)`
+  * Shows the BEST single saving opportunity, not the cumulative sum
+  * Label changed: "Potential monthly savings" → "Best saving opportunity"
+  * Subtext: "Up to X% of your ₹Y/mo spend — pick one option below"
+- Fix 2 — LLM prompt (src/lib/ai.ts generateInsights):
+  * Added "CRITICAL SAVINGS RULE": potentialSaving must be REALISTIC and never exceed the monthly cost of the subscription(s) it references
+  * Added examples of realistic savings (annual plan = ~2 months free / 12, student discount = 50%, cancel duplicate = full cost)
+  * Added: "Do NOT suggest savings greater than what the user actually pays"
+  * For single-subscription users: explicitly tells the LLM to NOT suggest "overlapping services" or "bundle savings" (impossible with 1 sub)
+  * Focus for 1 sub: annual plan, student/family discounts, price hike alerts, cheaper alternatives
+
+Verification (Agent Browser, 1 subscription Netflix ₹199/mo):
+- Before: "Potential monthly savings: ₹218" (impossible — more than the subscription cost)
+- After: "Best saving opportunity: ₹199" (realistic — max single option)
+- Individual insights: ₹75/mo (student discount), ₹199/mo (cheaper alternative) — both realistic
+- Insight titles: "Switch to Netflix Annual Plan", "Netflix Price Hike Alert", "Check for Student Discount", "Explore Cheaper Streaming Alternatives" — no "overlap" or "bundle" (correct for 1 sub)
+- Label: "Up to 100% of your ₹199/mo spend — pick one option below"
+- Zero errors, lint clean.
+
+Stage Summary:
+- Savings calculation is now correct: shows the best SINGLE option, not the sum of all alternatives.
+- LLM is constrained to generate realistic amounts (never more than the subscription costs).
+- For single-subscription users, insights are appropriate (no "overlapping services" suggestions).

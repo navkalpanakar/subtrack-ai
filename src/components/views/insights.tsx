@@ -26,7 +26,13 @@ export function InsightsView() {
   const { data: progress } = useProgress();
   const fmt = useFormatCurrency();
 
-  const totalSavings = (insights || []).reduce((sum, i) => sum + (i.potentialSaving || 0), 0);
+  // Show the BEST single saving opportunity, not the sum — insights are
+  // alternative options (the user picks one, not all). E.g., "switch to
+  // annual" OR "find a student discount" — not both.
+  const totalSavings = (insights || []).reduce(
+    (max, i) => Math.max(max, i.potentialSaving || 0),
+    0
+  );
   const totalMonthly = (subs || [])
     .filter((s) => s.status === "active")
     .reduce((sum, s) => sum + monthlyEquivalent(Number(s.amount), s.billingCycle), 0);
@@ -76,11 +82,13 @@ export function InsightsView() {
         animate={{ opacity: 1, y: 0 }}
         className="rounded-2xl bg-gradient-to-br from-primary/15 to-primary/5 border border-primary/20 p-4"
       >
-        <p className="text-xs text-muted-foreground">Potential monthly savings</p>
+        <p className="text-xs text-muted-foreground">Best saving opportunity</p>
         <p className="text-3xl font-bold text-primary mt-0.5">{fmt(totalSavings)}</p>
         <p className="text-xs text-muted-foreground mt-1">
-          {totalMonthly > 0
-            ? `That's ${Math.round((totalSavings / totalMonthly) * 100)}% of your ${fmt(totalMonthly)}/mo spend`
+          {totalSavings > 0
+            ? totalMonthly > 0
+              ? `Up to ${Math.round((totalSavings / totalMonthly) * 100)}% of your ${fmt(totalMonthly)}/mo spend — pick one option below`
+              : "Pick one option below to start saving"
             : "Add subscriptions to see personalized savings"}
         </p>
       </motion.div>

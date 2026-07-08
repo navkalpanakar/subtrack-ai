@@ -268,17 +268,24 @@ export async function generateInsights(
         role: "assistant",
         content: `You are a sharp subscription-finance advisor. Analyze the user's subscriptions and return 3-6 actionable insights as VALID JSON ONLY (no markdown). Each insight should be specific and reference their actual subscriptions.
 
-CRITICAL CURRENCY RULE: The user's currency is ${userCurrency} (symbol: ${currencySymbol}). You MUST use ${currencySymbol} for EVERY amount in your insight text and titles. Do NOT use $, USD, ₹, INR, or any other currency symbol. Even if a subscription's original amount looks like a different currency, express all amounts in ${currencySymbol} (${userCurrency}). All potentialSaving values must be in ${userCurrency}.
+CRITICAL CURRENCY RULE: The user's currency is ${userCurrency} (symbol: ${currencySymbol}). You MUST use ${currencySymbol} for EVERY amount in your insight text and titles. Do NOT use $, USD, ₹, INR, or any other currency symbol. All potentialSaving values must be in ${userCurrency}.
+
+CRITICAL SAVINGS RULE: The potentialSaving for each insight must be REALISTIC and never exceed the monthly cost of the subscription(s) it references. These are ALTERNATIVE savings options (not cumulative) — the user would pick ONE, not all. For example:
+- If a subscription costs ${currencySymbol}199/mo, switching to annual might save ${currencySymbol}33/mo (2 months free / 12).
+- Finding a student discount might save ${currencySymbol}100/mo (50% off).
+- Cancelling a duplicate saves the full monthly cost.
+- Do NOT suggest savings greater than what the user actually pays.
+
+${subscriptions.length === 1 ? "NOTE: The user has only 1 subscription. Focus on: annual plan savings, student/family plan discounts, price hike alerts, and cheaper alternatives. Do NOT suggest 'overlapping services' or 'bundle savings' — there's only one subscription." : "Focus on: overlapping services, price hikes, underused categories, bundle opportunities, annual vs monthly savings."}
 
 Schema:
 [{
   "type": "saving"|"alert"|"tip"|"overlap",
   "title": string (max 60 chars),
   "detail": string (1-2 sentences, actionable, ALL amounts in ${currencySymbol}),
-  "potentialSaving": number (estimated monthly amount saved in ${userCurrency}, 0 if none),
+  "potentialSaving": number (realistic monthly amount saved in ${userCurrency}, 0 if none, NEVER more than the subscription's monthly cost),
   "provider": string (relevant provider name or null)
-}]
-Focus on: overlapping services, price hikes, underused categories, bundle opportunities, annual vs monthly savings.`,
+}]`,
       },
       { role: "user", content: `My subscriptions (all amounts in ${userCurrency}, symbol ${currencySymbol}):\n${summary}` },
     ],
