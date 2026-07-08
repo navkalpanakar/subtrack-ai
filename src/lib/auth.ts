@@ -79,9 +79,10 @@ export const authOptions: NextAuthOptions = {
       return session;
     },
     async redirect({ baseUrl }) {
-      // After Google OAuth, redirect to /auth-bridge which converts
-      // the NextAuth session into our token-based auth
-      return `${baseUrl}/auth-bridge`;
+      // After Google OAuth, redirect to the bridge-token endpoint which
+      // reads the NextAuth session server-side and issues our token,
+      // then redirects to /?auth_token=xxx
+      return `${baseUrl}/api/auth/bridge-token`;
     },
   },
   pages: { signIn: "/" },
