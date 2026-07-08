@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 type Mode = "main" | "email" | "otp";
 
 export function LoginScreen() {
-  const { signInDemo, sendEmailOtp, verifyEmailOtp, signInOAuthPreview } = useAuth();
+  const { signInDemo, sendEmailOtp, verifyEmailOtp } = useAuth();
   const [mode, setMode] = useState<Mode>("main");
   const [loading, setLoading] = useState<null | string>(null);
 
@@ -35,24 +35,17 @@ export function LoginScreen() {
   const [otp, setOtp] = useState("");
   const [devOtp, setDevOtp] = useState<string | null>(null);
 
-  // OAuth handler: if the provider is configured (real credentials), use
-  // NextAuth's signIn. Otherwise, use the preview flow that creates a user
-  // + links the provider so the full experience is testable.
-  const handleOAuth = async (provider: "google" | "microsoft" | "apple") => {
-    setLoading(provider);
+  // OAuth handler — uses real NextAuth OAuth. Requires env vars to be set.
+  // If not configured, shows a helpful toast telling the user to sign in
+  // with email or demo instead.
+  const handleOAuth = (provider: "google" | "microsoft" | "apple") => {
     const nextAuthId =
       provider === "google" ? "google" : provider === "microsoft" ? "azure-ad" : "apple";
     if (oauthProviders.has(nextAuthId)) {
-      // Real OAuth — redirect to the provider
+      setLoading(provider);
       signIn(nextAuthId, { callbackUrl: "/" });
     } else {
-      // Preview mode — create a user linked to this provider
-      const res = await signInOAuthPreview(provider);
-      if (res.error) {
-        toast.error(res.error);
-        setLoading(null);
-      }
-      // on success, the auth context updates and RootGate flips to AppShell
+      toast.error(`${provider === "google" ? "Google" : provider === "microsoft" ? "Microsoft" : "Apple"} sign-in is not configured yet. Use email or demo for now.`);
     }
   };
 

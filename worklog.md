@@ -731,3 +731,35 @@ Stage Summary:
 - Spin wheel: one spin per 24 hours, live HH:MM:SS countdown timer shown until next spin.
 - Scratch cards: one reveal per card, "✓ Revealed" badge + message to unlock another.
 - Users always know exactly when they can play again.
+
+---
+Task ID: 21
+Agent: main
+Task: Remove fake/preview data + create complete production deployment + Play Store guide
+
+Work Log:
+- Removed fake/preview routes:
+  * /api/auth/oauth-preview (fake OAuth user creation)
+  * /api/auth/email-login (passwordless, no OTP)
+  * /api/auth/phone-send + phone-verify (mock SMS OTP)
+- Removed corresponding hooks: signInOAuthPreview, signInEmail, sendPhoneOtp, verifyPhoneOtp
+- Updated login screen: OAuth buttons now use real NextAuth only (toast if not configured)
+- Updated email-send route: devOtp only returned when RESEND_API_KEY is NOT set (production = null)
+- Kept: demo-login (uses real localized prices), email-send/verify (real Resend OTP)
+- Kept: gmail/outlook/apple scan routes (need real API wiring — documented in guide)
+- Created DEPLOYMENT-GUIDE.md with complete step-by-step:
+  * Priority 1: Environment variables (all env vars with setup instructions)
+  * Priority 2: Deploy web app (Vercel/Node/Docker)
+  * Priority 3: Update OAuth redirect URIs
+  * Priority 4: TWA wrap for Play Store (Bubblewrap CLI)
+  * Priority 5: Files to review/change for production
+  * Priority 6: Generate PNG icons
+  * Priority 7: Privacy policy + terms
+  * Quick checklist + timeline estimate
+  * What was removed + what still uses preview data + how to fix
+
+Verification:
+- Lint clean after removing routes
+- Server responds 200
+- Demo login still works (localized prices)
+- Email OTP still works (preview mode shows code, production sends real email)

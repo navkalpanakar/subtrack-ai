@@ -29,12 +29,8 @@ type AuthState = {
   user: SessionUser | null;
   loading: boolean;
   signInDemo: () => Promise<void>;
-  signInEmail: (email: string, name?: string) => Promise<void>;
-  signInOAuthPreview: (provider: "google" | "microsoft" | "apple") => Promise<{ token?: string; error?: string }>;
   sendEmailOtp: (email: string) => Promise<{ sent: boolean; devOtp?: string; error?: string }>;
   verifyEmailOtp: (email: string, otp: string, name?: string) => Promise<{ token?: string; error?: string }>;
-  sendPhoneOtp: (phone: string) => Promise<{ sent: boolean; devOtp?: string }>;
-  verifyPhoneOtp: (phone: string, otp: string, name?: string) => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -115,20 +111,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(false);
   }, []);
 
-  const signInEmail = useCallback(async (email: string, name?: string) => {
-    setLoading(true);
-    const res = await fetch("/api/auth/email-login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, name }),
-    });
-    const data: { token: string; user: SessionUser } = await res.json();
-    localStorage.setItem(TOKEN_KEY, data.token);
-    setUser(data.user);
-    setLoading(false);
-  }, []);
-
-  // Email-with-OTP verification flow (the new primary email login)
+  // Email-with-OTP verification flow (the primary email login)
   const sendEmailOtp = useCallback(async (email: string) => {
     const res = await fetch("/api/auth/email-send", {
       method: "POST",
@@ -155,50 +138,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return data;
   }, []);
 
-  const sendPhoneOtp = useCallback(async (phone: string) => {
-    const res = await fetch("/api/auth/phone-send", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ phone }),
-    });
-    const data: { sent: boolean; devOtp?: string } = await res.json();
-    return data;
-  }, []);
-
-  const verifyPhoneOtp = useCallback(async (phone: string, otp: string, name?: string) => {
-    setLoading(true);
-    const res = await fetch("/api/auth/phone-verify", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ phone, otp, name }),
-    });
-    const data: { token: string; user: SessionUser } = await res.json();
-    localStorage.setItem(TOKEN_KEY, data.token);
-    setUser(data.user);
-    setLoading(false);
-  }, []);
-
-  const signInOAuthPreview = useCallback(async (provider: "google" | "microsoft" | "apple") => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/auth/oauth-preview", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider }),
-      });
-      const data: { token: string; user: SessionUser; error?: string } = await res.json();
-      if (data.token) {
-        localStorage.setItem(TOKEN_KEY, data.token);
-        setUser(data.user);
-      }
-      setLoading(false);
-      return data;
-    } catch {
-      setLoading(false);
-      return { error: "Could not sign in" };
-    }
-  }, []);
-
   const signOut = useCallback(async () => {
     const token = localStorage.getItem(TOKEN_KEY);
     if (token) {
@@ -209,8 +148,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ user, loading, signInDemo, signInEmail, signInOAuthPreview, sendEmailOtp, verifyEmailOtp, sendPhoneOtp, verifyPhoneOtp, signOut }),
-    [user, loading, signInDemo, signInEmail, signInOAuthPreview, sendEmailOtp, verifyEmailOtp, sendPhoneOtp, verifyPhoneOtp, signOut]
+    () => ({ user, loading, signInDemo, sendEmailOtp, verifyEmailOtp, signOut }),
+    [user, loading, signInDemo, sendEmailOtp, verifyEmailOtp, signOut]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
