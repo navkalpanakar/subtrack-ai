@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/select";
 import {
   Sparkles, Camera, Mail, Send, Loader2, Check, MailCheck,
-  Mic, MicOff, AlertCircle, ShieldCheck, RefreshCw,
+  Mic, MicOff, AlertCircle, ShieldCheck, RefreshCw, Lightbulb,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -32,6 +32,7 @@ import {
   scanReceipt,
   scanEmail,
   scanInbox,
+  fetchSuggestions,
   type Subscription,
 } from "@/hooks/use-subscriptions";
 import { CATEGORIES, CYCLES, categoryColor } from "@/lib/format";
@@ -91,6 +92,32 @@ export function QuickAddSheet({
   const [nlText, setNlText] = useState("");
   const [parsing, setParsing] = useState(false);
 
+  // "Did you mean?" suggestions (debounced as user types/speaks)
+  const [suggestions, setSuggestions] = useState<Array<{ correctedText: string; provider: string; reason: string }>>([]);
+  const [suggestLoading, setSuggestLoading] = useState(false);
+  const suggestTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const updateTextWithSuggest = (text: string) => {
+    setNlText(text);
+    // Debounce the suggestion fetch (500ms after user stops typing)
+    if (suggestTimer.current) clearTimeout(suggestTimer.current);
+    if (text.trim().length < 3) {
+      setSuggestions([]);
+      return;
+    }
+    suggestTimer.current = setTimeout(async () => {
+      setSuggestLoading(true);
+      try {
+        const res = await fetchSuggestions(text);
+        setSuggestions(res.hasTypo ? res.suggestions : []);
+      } catch {
+        setSuggestions([]);
+      } finally {
+        setSuggestLoading(false);
+      }
+    }, 500);
+  };
+
   // Voice input state
   const [recording, setRecording] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
@@ -146,7 +173,7 @@ export function QuickAddSheet({
           try {
             const { text } = await transcribeAudio(dataUrl);
             if (text) {
-              setNlText(text);
+              updateTextWithSuggest(text);
               toast.success("Heard you! Tap Parse to add.");
             } else {
               toast.error("Couldn't catch that — try again.");
@@ -467,7 +494,7 @@ export function QuickAddSheet({
                 <div className="relative">
                   <Textarea
                     value={nlText}
-                    onChange={(e) => setNlText(e.target.value)}
+                    onChange={(e) => updateTextWithSuggest(e.target.value)}
                     placeholder="Describe your subscription in any words… or tap the mic to speak"
                     rows={3}
                     className="resize-none pr-12"
@@ -498,6 +525,39 @@ export function QuickAddSheet({
                     Recording… tap the mic to stop & transcribe
                   </p>
                 )}
+
+                {/* "Did you mean?" suggestion chips — appear when Savvy detects a typo */}
+                {(suggestLoading || suggestions.length > 0) && (
+                  <div className="rounded-xl bg-amber-500/8 border border-amber-500/20 p-2.5 space-y-2">
+                    <div className="flex items-center gap-1.5 text-[11px] text-amber-600 dark:text-amber-400 font-medium">
+                      <Lightbulb className="h-3.5 w-3.5" />
+                      {suggestLoading ? "Savvy is checking…" : "Did you mean?"}
+                    </div>
+                    {suggestions.map((s, i) => (
+                      <button
+                        key={i}
+                        onClick={() => {
+                          setNlText(s.correctedText);
+                          setSuggestions([]);
+                          toast.success(`Using “${s.provider}”`);
+                        }}
+                        className="w-full text-left flex items-center gap-2 px-2.5 py-2 rounded-lg bg-background hover:bg-amber-500/10 transition active:scale-[0.98]"
+                      >
+                        <div className="h-7 w-7 rounded-lg bg-amber-500/15 flex items-center justify-center shrink-0">
+                          <Lightbulb className="h-3.5 w-3.5 text-amber-500" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold truncate">{s.provider}</p>
+                          <p className="text-[10px] text-muted-foreground truncate">
+                            {s.reason} · “{s.correctedText}”
+                          </p>
+                        </div>
+                        <Check className="h-3.5 w-3.5 text-primary shrink-0" />
+                      </button>
+                    ))}
+                  </div>
+                )}
+
                 <Button
                   onClick={handleParse}
                   disabled={!nlText.trim() || parsing}

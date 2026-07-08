@@ -141,6 +141,32 @@ export async function scanReceipt(image: string) {
   );
 }
 
+export type Suggestion = {
+  correctedText: string;
+  provider: string;
+  reason: string;
+};
+
+export async function fetchSuggestions(text: string) {
+  if (!text || text.trim().length < 2) {
+    return { hasTypo: false, suggestions: [] as Suggestion[] };
+  }
+  try {
+    const res = await fetch("/api/ai/suggest", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    });
+    const data = await res.json();
+    return {
+      hasTypo: data.hasTypo || false,
+      suggestions: (data.suggestions || []) as Suggestion[],
+    };
+  } catch {
+    return { hasTypo: false, suggestions: [] as Suggestion[] };
+  }
+}
+
 export async function scanEmail(content: string) {
   return api<{ subscriptions: Array<Record<string, unknown>> }>(
     "/api/email/scan",

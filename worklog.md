@@ -486,3 +486,35 @@ Stage Summary:
   1. During add: tap "Re-parse" to correct the text and re-run AI (preserves your input)
   2. After save: tap any subscription card → Edit → fix any field → save
 - Both flows fully functional and verified.
+
+---
+Task ID: 14
+Agent: main
+Task: Add "Did you mean?" AI suggestions for typos (netflx→Netflix, amzn prime→Amazon Prime, spotfy→Spotify)
+
+Work Log:
+- New /api/ai/suggest route:
+  * Accepts {text} — the user's partial/misspelled input
+  * LLM checks for typos/partial names using a comprehensive prompt with common aliases (amzn→Amazon, yt→YouTube, gpt→ChatGPT, prime→Amazon Prime, max→HBO Max, etc.)
+  * Returns {hasTypo, suggestions: [{correctedText, provider, reason}]} — max 3 suggestions
+  * Only suggests for short text (<60 chars) to avoid noise
+- fetchSuggestions() helper added to use-subscriptions.ts hooks
+- Quick Add AI tab:
+  * updateTextWithSuggest() — replaces setNlText, debounces suggestion fetch (500ms after user stops typing)
+  * Voice transcription also triggers suggestions (updateTextWithSuggest called after ASR)
+  * Suggestion chips UI: amber-bordered box with 💡 "Did you mean?" label
+  * Each suggestion is a clickable chip showing the provider name + reason + corrected text
+  * Clicking a chip replaces the textarea text with the corrected version + toast "Using Netflix"
+  * Loading state: "Savvy is checking…" while the LLM thinks
+- Works for both typed AND spoken input — if ASR mishears, suggestions appear
+
+Verification (Agent Browser):
+- Typed "netflx 199 monthly" → suggestion chip appeared: "Netflix — Did you mean Netflix? · Netflix 199 monthly" → clicked → text corrected to "Netflix 199 monthly" ✓
+- Typed "amzn prime 1499 yearly" → suggestion: "Amazon Prime — Did you mean Amazon Prime?" → clicked → corrected ✓
+- Typed "spotfy 119 monthly" → suggestion: "Spotify — Did you mean Spotify?" → clicked → corrected to "Spotify 119 monthly" ✓
+- Zero errors, lint clean.
+
+Stage Summary:
+- Savvy now catches typos and partial names in real-time as the user types or speaks.
+- Suggestions appear as clickable chips — one tap fixes the text.
+- Saves time for both user (no manual correction) and the system (AI parses clean input → fewer re-parses).
