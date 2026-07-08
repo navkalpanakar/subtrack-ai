@@ -27,6 +27,20 @@ function getZai() {
   return zaiPromise;
 }
 
+// Minimal currency symbol map for the AI prompts (avoids importing the client-side
+// currency lib into server code).
+function getCurrencySymbol(currency: string): string {
+  const symbols: Record<string, string> = {
+    USD: "$", INR: "₹", EUR: "€", GBP: "£", JPY: "¥", KRW: "₩",
+    CNY: "¥", AUD: "A$", CAD: "C$", NZD: "NZ$", SGD: "S$", HKD: "HK$",
+    TWD: "NT$", RUB: "₽", BRL: "R$", MXN: "Mex$", ZAR: "R", AED: "AED",
+    SAR: "SAR", TRY: "₺", SEK: "kr", NOK: "kr", DKK: "kr", PLN: "zł",
+    CZK: "Kč", THB: "฿", MYR: "RM", PHP: "₱", NGN: "₦", CHF: "CHF",
+    ILS: "₪", ARS: "$", CLP: "$", COP: "$", EGP: "E£",
+  };
+  return symbols[currency] || currency;
+}
+
 /**
  * Parse free-form natural-language text into a structured subscription.
  * Examples it handles:
@@ -224,6 +238,7 @@ export type Insight = {
 
 /**
  * Generate smart savings insights from a user's subscription list.
+ * The user's currency is passed so the LLM uses correct symbols in its text.
  */
 export async function generateInsights(
   subscriptions: Array<{
@@ -233,14 +248,17 @@ export async function generateInsights(
     amount: number;
     billingCycle: string;
     usageTags: string;
-  }>
+    currency?: string;
+  }>,
+  userCurrency = "USD"
 ): Promise<Insight[]> {
   const zai = await getZai();
+  const currencySymbol = getCurrencySymbol(userCurrency);
 
   const summary = subscriptions
     .map(
       (s) =>
-        `- ${s.name} (${s.provider}) | ${s.category} | $${s.amount}/${s.billingCycle} | tags: ${s.usageTags || "none"}`
+        `- ${s.name} (${s.provider}) | ${s.category} | ${currencySymbol}${s.amount}/${s.billingCycle} (currency: ${s.currency || userCurrency}) | tags: ${s.usageTags || "none"}`
     )
     .join("\n");
 
@@ -249,17 +267,20 @@ export async function generateInsights(
       {
         role: "assistant",
         content: `You are a sharp subscription-finance advisor. Analyze the user's subscriptions and return 3-6 actionable insights as VALID JSON ONLY (no markdown). Each insight should be specific and reference their actual subscriptions.
+
+IMPORTANT: The user's currency is ${userCurrency} (symbol: ${currencySymbol}). Use ${currencySymbol} for ALL amounts in your insight text and titles. Do NOT use $ or USD unless the user's currency is actually USD.
+
 Schema:
 [{
   "type": "saving"|"alert"|"tip"|"overlap",
   "title": string (max 60 chars),
-  "detail": string (1-2 sentences, actionable),
-  "potentialSaving": number (estimated monthly USD saved, 0 if none),
+  "detail": string (1-2 sentences, actionable, use ${currencySymbol} for amounts),
+  "potentialSaving": number (estimated monthly amount saved in ${userCurrency}, 0 if none),
   "provider": string (relevant provider name or null)
 }]
 Focus on: overlapping services, price hikes, underused categories, bundle opportunities, annual vs monthly savings.`,
       },
-      { role: "user", content: `My subscriptions:\n${summary}` },
+      { role: "user", content: `My subscriptions (currency: ${userCurrency}):\n${summary}` },
     ],
     thinking: { type: "disabled" },
   });

@@ -553,3 +553,37 @@ Stage Summary:
 - Savvy tips are now personalized to the user's actual subscriptions — no more mentioning services they don't have.
 - Currency is consistent everywhere (₹ across dashboard, subscriptions, insights, cards).
 - iOS-style frosted glass on both nav bars (8/10 glassmorphism rating).
+
+---
+Task ID: 16
+Agent: main
+Task: Fix AI Insights currency — LLM was generating $ in insight text instead of user's currency (₹)
+
+Work Log:
+- Root cause: generateInsights() in src/lib/ai.ts:
+  1. Line 243: `$${s.amount}` — hardcoded $ in the subscription summary sent to the LLM
+  2. Line 257: `estimated monthly USD saved` — told the LLM to use USD
+  3. The LLM had no idea what the user's currency was, so it defaulted to $ in all insight text
+- Fix in src/lib/ai.ts:
+  * Added getCurrencySymbol() helper (server-side, 30+ currencies)
+  * generateInsights() now accepts userCurrency parameter (default USD)
+  * Subscription summary uses the correct symbol: `${currencySymbol}${s.amount}` + includes the currency code
+  * LLM prompt now explicitly states: "The user's currency is {X} (symbol: {Y}). Use {Y} for ALL amounts. Do NOT use $ or USD unless the user's currency is actually USD."
+  * Schema description updated: "use {symbol} for amounts", "estimated monthly amount saved in {currency}"
+- Fix in /api/ai/insights route:
+  * Now fetches the user's currency from the User model (user.currency field)
+  * Passes userCurrency + each subscription's currency to generateInsights()
+  * Falls back to USD if no currency set
+
+Verification (Agent Browser, INR currency):
+- Opened AI Insights tab
+- Checked for $ symbols: null (none found) ✓
+- All amounts use ₹: "₹206.50", "₹345.03/mo", "₹15.49", "₹199", "₹139", "₹11.58", "₹59/month", "₹2.99", "₹15-20" ✓
+- Insight titles: "Duplicate Netflix Subscriptions", "Amazon Prime Yearly Cost", etc. — no $ ✓
+- Insight details: "You have two Netflix subscriptions - one at ₹15.49 and another at ₹199. Cancel the more expensive one to save ₹183.51 monthly." ✓
+- Zero errors, lint clean.
+
+Stage Summary:
+- AI Insights now generate all text in the user's local currency (₹ for India, $ for US, € for EU, etc.)
+- The LLM is explicitly instructed to use the correct symbol and not default to $.
+- Currency is consistent across the entire app: dashboard, subscriptions, insights, tips, scratch cards.
