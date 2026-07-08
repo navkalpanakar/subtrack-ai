@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Home, ListChecks, Lightbulb, Gift, Plus, Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useAuth } from "@/hooks/use-auth";
+import { useGeolocation } from "@/hooks/use-geolocation";
 import { useUI, type Tab } from "@/hooks/use-ui";
 import { DashboardView } from "./views/dashboard";
 import { SubscriptionsView } from "./views/subscriptions";
@@ -26,6 +27,7 @@ export function AppShell() {
   const { tab, setTab, quickAddOpen, setQuickAddOpen } = useUI();
   const { theme, setTheme } = useTheme();
   const { user } = useAuth();
+  useGeolocation(); // fetch user location + set local currency after sign-in
 
   return (
     <div className="relative min-h-screen flex flex-col bg-background safe-top">

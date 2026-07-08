@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { verifyOtp, issueToken } from "@/lib/token-store";
-import { seedDemoSubscriptions } from "@/lib/auth";
 import { ensureUserProgress } from "@/lib/gamification";
 
 // Verify the OTP and create/find the user by phone, then issue a token.
+// New users start with an EMPTY dashboard — no demo data.
 export async function POST(req: NextRequest) {
   const { phone, otp, name } = await req.json();
   if (!phone || !otp) {
@@ -20,10 +20,8 @@ export async function POST(req: NextRequest) {
     user = await db.user.create({
       data: { phone, name: name || "Phone User" },
     });
-    await seedDemoSubscriptions(user.id);
   }
   await ensureUserProgress(user.id);
-  // Link the phone provider
   await db.linkedAccount.upsert({
     where: { userId_provider: { userId: user.id, provider: "phone" } },
     update: {},

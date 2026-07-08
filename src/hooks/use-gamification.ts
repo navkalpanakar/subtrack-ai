@@ -207,12 +207,15 @@ export function useSpinState() {
 export function useSpin() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: () => api<SpinResult>("/api/games/spin", { method: "POST" }),
+    mutationFn: (claim?: boolean) =>
+      api<SpinResult>(`/api/games/spin${claim ? "?claim=true" : ""}`, { method: "POST" }),
     onSuccess: (data) => {
-      qc.invalidateQueries({ queryKey: ["progress"] });
-      qc.invalidateQueries({ queryKey: ["spin-state"] });
-      // Note: the spin result toast is shown by the SpinWheel component
-      // AFTER the wheel animation completes, not here.
+      // Only invalidate queries when claiming (after animation) so the
+      // points balance doesn't jump before the wheel stops.
+      if (data.claimed || !data.spun) {
+        qc.invalidateQueries({ queryKey: ["progress"] });
+        qc.invalidateQueries({ queryKey: ["spin-state"] });
+      }
       if (!data.spun) {
         toast(data.message || "Already spun today");
       }

@@ -57,16 +57,21 @@ export function DashboardView() {
 
   if (!subs || subs.length === 0) {
     return (
-      <div className="text-center py-12">
+      <div className="text-center py-10">
         <SavvyMascot size={88} variant="happy" className="mx-auto mb-3" />
-        <h2 className="font-semibold text-lg">Let's get tracking!</h2>
+        <h2 className="font-semibold text-lg">Welcome to SubTrack AI!</h2>
         <p className="text-sm text-muted-foreground mt-1 max-w-xs mx-auto">
-          Add your first subscription and Savvy will start finding savings.
-          You'll earn <span className="font-semibold text-primary">10 points</span> instantly.
+          Your dashboard is empty. Sync your inbox to auto-detect subscriptions,
+          or add one manually — Savvy will start finding savings instantly.
         </p>
-        <Button className="mt-5" onClick={() => setQuickAddOpen(true)}>
-          <Sparkles className="h-4 w-4 mr-1" /> Add your first subscription
-        </Button>
+        <div className="flex flex-col gap-2 mt-5 max-w-xs mx-auto">
+          <Button onClick={() => setQuickAddOpen(true)}>
+            <Sparkles className="h-4 w-4 mr-1" /> Add subscription
+          </Button>
+          <p className="text-[10px] text-muted-foreground mt-1">
+            Earn <span className="font-semibold text-primary">+10 points</span> for each subscription you add
+          </p>
+        </div>
       </div>
     );
   }

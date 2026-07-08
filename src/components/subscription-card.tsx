@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { MoreVertical, ExternalLink, Trash2, Pencil } from "lucide-react";
+import { MoreVertical, ExternalLink, Trash2, Pencil, Check, X, Loader2 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,6 +10,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
 import {
   formatCurrency,
   monthlyEquivalent,
@@ -17,7 +19,7 @@ import {
   daysUntil,
 } from "@/lib/format";
 import { LOGO_FALLBACKS } from "@/lib/logo";
-import type { Subscription } from "@/hooks/use-subscriptions";
+import { useUpdateSubscription, type Subscription } from "@/hooks/use-subscriptions";
 
 export function SubscriptionCard({
   sub,
@@ -31,12 +33,30 @@ export function SubscriptionCard({
   compact?: boolean;
 }) {
   const [logoIdx, setLogoIdx] = useState(0);
+  const [editingAmount, setEditingAmount] = useState(false);
+  const [amountValue, setAmountValue] = useState(String(sub.amount));
+  const updateSub = useUpdateSubscription();
   const days = daysUntil(sub.nextBillingDate);
   const monthly = monthlyEquivalent(Number(sub.amount), sub.billingCycle);
   const urgent = days <= 3 && sub.status === "active";
   const overdue = days < 0 && sub.status === "active";
   const brandColor = sub.color || "#64748b";
   const initials = sub.name.slice(0, 2).toUpperCase();
+
+  const saveAmount = async () => {
+    const newAmount = parseFloat(amountValue);
+    if (isNaN(newAmount) || newAmount < 0) {
+      toast.error("Enter a valid amount");
+      return;
+    }
+    try {
+      await updateSub.mutateAsync({ id: sub.id, data: { amount: newAmount } });
+      setEditingAmount(false);
+      toast.success(`${sub.name} price updated`);
+    } catch {
+      toast.error("Could not update price");
+    }
+  };
 
   // Build the list of logo URLs to try: stored logo first, then fallbacks.
   const logoUrls = sub.logo
@@ -100,12 +120,50 @@ export function SubscriptionCard({
         )}
       </div>
 
-      {/* Amount */}
+      {/* Amount — tap to edit inline */}
       <div className="text-right shrink-0">
-        <p className="font-bold text-sm">{formatCurrency(Number(sub.amount))}</p>
-        <p className="text-[10px] text-muted-foreground">
-          {formatCurrency(monthly)}/mo
-        </p>
+        {editingAmount ? (
+          <div className="flex items-center gap-1">
+            <Input
+              type="number"
+              inputMode="decimal"
+              value={amountValue}
+              onChange={(e) => setAmountValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") saveAmount();
+                if (e.key === "Escape") setEditingAmount(false);
+              }}
+              className="h-7 w-16 text-sm text-right px-1"
+              autoFocus
+            />
+            <button
+              onClick={saveAmount}
+              disabled={updateSub.isPending}
+              className="h-6 w-6 rounded flex items-center justify-center text-primary hover:bg-primary/10"
+            >
+              {updateSub.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+            </button>
+            <button
+              onClick={() => { setEditingAmount(false); setAmountValue(String(sub.amount)); }}
+              className="h-6 w-6 rounded flex items-center justify-center text-muted-foreground hover:bg-accent"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setEditingAmount(true)}
+            className="group text-right"
+            title="Tap to edit price"
+          >
+            <p className="font-bold text-sm group-hover:text-primary transition">
+              {formatCurrency(Number(sub.amount))}
+            </p>
+            <p className="text-[10px] text-muted-foreground group-hover:text-primary/70 transition">
+              {formatCurrency(monthly)}/mo
+            </p>
+          </button>
+        )}
       </div>
 
       {/* Menu */}

@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { verifyOtp, issueToken } from "@/lib/token-store";
-import { seedDemoSubscriptions } from "@/lib/auth";
 import { ensureUserProgress } from "@/lib/gamification";
 
 // Verify the email OTP. Only after successful verification is the user
-// account created (or found) and a token issued.
+// account created (or found) and a token issued. New users start with an
+// EMPTY dashboard — no demo data. They add subscriptions themselves or
+// sync their inbox.
 export async function POST(req: NextRequest) {
   const { email, otp, name } = await req.json();
   if (!email || !otp) {
@@ -21,7 +22,6 @@ export async function POST(req: NextRequest) {
     user = await db.user.create({
       data: { email, name: name || email.split("@")[0] },
     });
-    await seedDemoSubscriptions(user.id);
   }
   await ensureUserProgress(user.id);
   await db.linkedAccount.upsert({

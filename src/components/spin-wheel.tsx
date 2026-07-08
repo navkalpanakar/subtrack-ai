@@ -26,26 +26,28 @@ export function SpinWheel() {
   const handleSpin = async () => {
     setResult(null);
     setSpinning(true);
-    const res = await spin.mutateAsync();
+    // Phase 1: dry-spin — get the result WITHOUT awarding points yet.
+    // This lets us animate the wheel before the balance updates.
+    const res = await spin.mutateAsync(false);
     if (res.spun && res.index !== undefined) {
       pendingResult.current = { points: res.points, index: res.index };
       // Rotate so the winning segment's CENTER lands under the top pointer.
-      // Segment i center (clockwise from top) = i*seg + seg/2.
-      // We want that point at 0deg (top), so rotate by its negation + 5 full spins.
       const target = 360 * 5 - (res.index * seg + seg / 2);
       setRotation(target);
-      // Result + toast fire on animation complete
+      // Phase 2 (claim) fires on animation complete
     } else {
       setSpinning(false);
     }
   };
 
-  const handleAnimationComplete = () => {
+  const handleAnimationComplete = async () => {
     if (pendingResult.current) {
       const { points } = pendingResult.current;
       setResult(points);
       setSpinning(false);
       pendingResult.current = null;
+      // Phase 2: NOW claim the points (awards them + invalidates balance).
+      await spin.mutateAsync(true);
       toast.success(`🎉 You won ${points} points!`, {
         description: "Points added to your balance",
       });

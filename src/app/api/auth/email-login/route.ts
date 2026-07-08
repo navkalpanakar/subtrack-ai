@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { issueToken } from "@/lib/token-store";
-import { seedDemoSubscriptions } from "@/lib/auth";
 import { ensureUserProgress } from "@/lib/gamification";
 
 // Email login (passwordless — just enter email + optional name). In
 // production this would send a magic link; here we create/find the user
-// directly so the flow works in preview.
+// directly so the flow works in preview. New users start empty.
 export async function POST(req: NextRequest) {
   const { email, name } = await req.json();
   if (!email || typeof email !== "string" || !email.includes("@")) {
@@ -19,7 +18,6 @@ export async function POST(req: NextRequest) {
     user = await db.user.create({
       data: { email, name: name || email.split("@")[0] },
     });
-    await seedDemoSubscriptions(user.id);
   }
   await ensureUserProgress(user.id);
   await db.linkedAccount.upsert({
