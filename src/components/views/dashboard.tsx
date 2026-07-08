@@ -28,7 +28,7 @@ export function DashboardView() {
   const { data: subs, isLoading } = useSubscriptions();
   const { data: progress } = useProgress();
   const deleteSub = useDeleteSubscription();
-  const { setTab, setQuickAddOpen } = useUI();
+  const { setTab, setQuickAddOpen, setEditTarget, setEditOpen } = useUI();
   const fmt = useFormatCurrency();
 
   const stats = useMemo(() => {
@@ -275,7 +275,11 @@ export function DashboardView() {
             const urgent = days <= 3;
             return (
               <div key={s.id} className={urgent ? "ring-1 ring-amber-500/40 rounded-2xl" : ""}>
-                <SubscriptionCard sub={s} onDelete={(id) => deleteSub.mutate(id)} />
+                <SubscriptionCard
+                  sub={s}
+                  onDelete={(id) => deleteSub.mutate(id)}
+                  onEdit={(id) => { setEditTarget({ id }); setEditOpen(true); }}
+                />
                 {urgent && (
                   <div className="px-3 pb-1 -mt-1 flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-400">
                     <AlertTriangle className="h-3 w-3" />

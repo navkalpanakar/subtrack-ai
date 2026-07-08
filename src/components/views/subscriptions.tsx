@@ -23,7 +23,7 @@ type Filter = "all" | "active" | "cancelled";
 export function SubscriptionsView() {
   const { data: subs, isLoading } = useSubscriptions();
   const deleteSub = useDeleteSubscription();
-  const { setQuickAddOpen } = useUI();
+  const { setQuickAddOpen, setEditTarget, setEditOpen } = useUI();
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<SortKey>("renewal");
   const [filter, setFilter] = useState<Filter>("all");
@@ -146,6 +146,7 @@ export function SubscriptionsView() {
               key={s.id}
               sub={s}
               onDelete={(id) => deleteSub.mutate(id)}
+              onEdit={(id) => { setEditTarget({ id }); setEditOpen(true); }}
             />
           ))}
         </div>

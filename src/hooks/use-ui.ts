@@ -11,6 +11,8 @@ interface UIState {
   setQuickAddOpen: (v: boolean) => void;
   editTarget: { id: string } | null;
   setEditTarget: (v: { id: string } | null) => void;
+  editOpen: boolean;
+  setEditOpen: (v: boolean) => void;
 }
 
 export const useUI = create<UIState>((set) => ({
@@ -20,4 +22,6 @@ export const useUI = create<UIState>((set) => ({
   setQuickAddOpen: (quickAddOpen) => set({ quickAddOpen }),
   editTarget: null,
   setEditTarget: (editTarget) => set({ editTarget }),
+  editOpen: false,
+  setEditOpen: (editOpen) => set({ editOpen }),
 }));

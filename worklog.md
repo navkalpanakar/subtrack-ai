@@ -448,3 +448,41 @@ Stage Summary:
 - Currency is now globally consistent: set it once (via geolocation or Profile picker) and it reflects everywhere.
 - Country picker with flags in Profile lets users override the detected location.
 - All amounts in Dashboard, Insights, Subscriptions, Quick Add use the same reactive currency.
+
+---
+Task ID: 13
+Agent: main
+Task: Fix AI misparse recovery — Re-parse button + full Edit sheet for existing subscriptions
+
+Work Log:
+- Problem: When AI misparses (wrong provider name from typo, wrong amount from speech, wrong date), the user had no easy way to fix it. The "Edit" dropdown item on cards was never wired to anything.
+- Fix 1 — Re-parse in Quick Add DraftForm:
+  * Added "Re-parse" button (top-right of the review form) with RefreshCw icon
+  * Clicking it returns to the AI tab with the original text PRESERVED so the user can correct the typo and re-run AI
+  * Toast: "Correct the text below and tap Parse again"
+  * Added amber hint box: "💡 Savvy got something wrong? Edit any field below, or tap Re-parse to try again with corrected text."
+  * All form fields remain fully editable inline (name, provider, category, amount, currency, cycle, date, cancel URL)
+- Fix 2 — EditSubscriptionSheet (new component):
+  * Full edit form for existing subscriptions — opens when tapping "Edit" in a card's dropdown menu
+  * Pre-fills all fields from the subscription's current data
+  * Editable: name, provider, category, amount, currency, billing cycle, next billing date, cancel URL
+  * Saves via PATCH /api/subscriptions/[id] + shows "Subscription updated" toast
+  * Wired into AppShell via useUI store (editOpen + editTarget state)
+- UI store: added editOpen + setEditOpen to the global UI state
+- Dashboard + Subscriptions view: wired onEdit callback to open the edit sheet (setEditTarget + setEditOpen)
+- Subscription card: the existing "Edit" dropdown item now actually works
+
+Verification (Agent Browser):
+- Typed "Netflx 199 monthly renews the 5th" (typo) → AI parsed it → DraftForm showed name "Netflx" + provider "Netflix" (mismatch)
+- DraftForm showed "Re-parse" button + amber hint "Savvy got something wrong?"
+- Clicked Re-parse → returned to AI tab with text preserved → toast "Correct the text below"
+- Corrected to "Netflix 199 monthly renews the 5th" → re-parsed → saved successfully
+- Opened existing Notion Plus card → More options → Edit → EditSubscriptionSheet opened with all fields pre-filled
+- Changed name to "Notion Plus Pro" → Save changes → "Subscription updated" toast → name updated on card ✓
+- Zero errors, lint clean.
+
+Stage Summary:
+- Two ways to fix AI mistakes now:
+  1. During add: tap "Re-parse" to correct the text and re-run AI (preserves your input)
+  2. After save: tap any subscription card → Edit → fix any field → save
+- Both flows fully functional and verified.

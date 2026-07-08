@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/select";
 import {
   Sparkles, Camera, Mail, Send, Loader2, Check, MailCheck,
-  Mic, MicOff, AlertCircle, ShieldCheck,
+  Mic, MicOff, AlertCircle, ShieldCheck, RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -424,6 +424,14 @@ export function QuickAddSheet({
               onSave={handleSave}
               saving={create.isPending}
               onCancel={() => { setDraft(null); setVerification(null); }}
+              onReparse={() => {
+                // Go back to the AI tab with the original text so the user
+                // can correct it and re-run the AI parse.
+                setDraft(null);
+                setVerification(null);
+                setMode("ai");
+                toast.info("Correct the text below and tap Parse again");
+              }}
             />
           ) : bulkDrafts ? (
             <BulkReview
@@ -722,18 +730,37 @@ function VerifyPriceDialog({
 
 // ─── Draft review form ──────────────────────────────────────────
 function DraftForm({
-  draft, onChange, onSave, onCancel, saving,
+  draft, onChange, onSave, onCancel, saving, onReparse, reparsing,
 }: {
   draft: Draft;
   onChange: (d: Draft) => void;
   onSave: () => void;
   onCancel: () => void;
   saving: boolean;
+  onReparse?: () => void;
+  reparsing?: boolean;
 }) {
   return (
     <div className="space-y-3 mt-2">
-      <div className="flex items-center gap-2 text-sm font-medium text-primary">
-        <Check className="h-4 w-4" /> Review &amp; save
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2 text-sm font-medium text-primary">
+          <Check className="h-4 w-4" /> Review &amp; save
+        </div>
+        {onReparse && (
+          <button
+            onClick={onReparse}
+            disabled={reparsing}
+            className="text-[11px] text-muted-foreground hover:text-primary flex items-center gap-1 transition"
+          >
+            {reparsing ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+            Re-parse
+          </button>
+        )}
+      </div>
+      {/* AI got it wrong? hint */}
+      <div className="rounded-lg bg-amber-500/5 border border-amber-500/15 px-3 py-2 text-[11px] text-muted-foreground">
+        💡 <span className="text-foreground font-medium">Savvy got something wrong?</span> Edit any field below,
+        or tap <span className="text-primary font-medium">Re-parse</span> to try again with corrected text.
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="col-span-2 space-y-1.5">

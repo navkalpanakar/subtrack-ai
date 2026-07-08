@@ -12,6 +12,7 @@ import { InsightsView } from "./views/insights";
 import { RewardsView } from "./views/rewards";
 import { ProfileView } from "./views/profile";
 import { QuickAddSheet } from "./quick-add-sheet";
+import { EditSubscriptionSheet } from "./edit-subscription-sheet";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
@@ -24,7 +25,7 @@ const TABS: { id: Tab; label: string; icon: typeof Home }[] = [
 ];
 
 export function AppShell() {
-  const { tab, setTab, quickAddOpen, setQuickAddOpen } = useUI();
+  const { tab, setTab, quickAddOpen, setQuickAddOpen, editOpen, setEditOpen, editTarget, setEditTarget } = useUI();
   const { theme, setTheme } = useTheme();
   const { user } = useAuth();
   useGeolocation(); // fetch user location + set local currency after sign-in
@@ -113,6 +114,14 @@ export function AppShell() {
       </nav>
 
       <QuickAddSheet open={quickAddOpen} onOpenChange={setQuickAddOpen} />
+      <EditSubscriptionSheet
+        subscriptionId={editTarget?.id || null}
+        open={editOpen}
+        onOpenChange={(v) => {
+          setEditOpen(v);
+          if (!v) setEditTarget(null);
+        }}
+      />
     </div>
   );
 }
