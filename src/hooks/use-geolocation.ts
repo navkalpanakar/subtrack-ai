@@ -30,7 +30,31 @@ export function useGeolocation() {
     const saveLocation = async (country: string, countryCode: string, city: string) => {
       // Determine currency from country code
       const currency = COUNTRY_CURRENCY[countryCode] || "USD";
-      // Update the global currency store (reactive — all components update)
+
+      // Check if the user already has subscriptions in a DIFFERENT currency.
+      // If so, DON'T override — keep the currency their subscriptions are in.
+      try {
+        const res = await fetch("/api/subscriptions", { headers: { "Content-Type": "application/json" } });
+        const subs = await res.json();
+        if (Array.isArray(subs) && subs.length > 0) {
+          const subCurrency = subs[0]?.currency;
+          if (subCurrency && subCurrency !== currency) {
+            // User has subscriptions in a different currency — respect that
+            setCurrency(subCurrency, countryCode);
+            // Still persist the location (country/city) but keep the sub currency
+            await fetch("/api/account/location", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ country, countryCode, city, currency: subCurrency }),
+            });
+            return;
+          }
+        }
+      } catch {
+        // If we can't check, fall through to normal behavior
+      }
+
+      // No existing subscriptions or same currency — update normally
       setCurrency(currency, countryCode);
       // Persist to the user's account
       try {
