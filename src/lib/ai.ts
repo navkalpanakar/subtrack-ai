@@ -258,7 +258,7 @@ export async function generateInsights(
   const summary = subscriptions
     .map(
       (s) =>
-        `- ${s.name} (${s.provider}) | ${s.category} | ${currencySymbol}${s.amount}/${s.billingCycle} (currency: ${s.currency || userCurrency}) | tags: ${s.usageTags || "none"}`
+        `- ${s.name} (${s.provider}) | ${s.category} | ${currencySymbol}${s.amount}/${s.billingCycle} | tags: ${s.usageTags || "none"}`
     )
     .join("\n");
 
@@ -268,19 +268,19 @@ export async function generateInsights(
         role: "assistant",
         content: `You are a sharp subscription-finance advisor. Analyze the user's subscriptions and return 3-6 actionable insights as VALID JSON ONLY (no markdown). Each insight should be specific and reference their actual subscriptions.
 
-IMPORTANT: The user's currency is ${userCurrency} (symbol: ${currencySymbol}). Use ${currencySymbol} for ALL amounts in your insight text and titles. Do NOT use $ or USD unless the user's currency is actually USD.
+CRITICAL CURRENCY RULE: The user's currency is ${userCurrency} (symbol: ${currencySymbol}). You MUST use ${currencySymbol} for EVERY amount in your insight text and titles. Do NOT use $, USD, ₹, INR, or any other currency symbol. Even if a subscription's original amount looks like a different currency, express all amounts in ${currencySymbol} (${userCurrency}). All potentialSaving values must be in ${userCurrency}.
 
 Schema:
 [{
   "type": "saving"|"alert"|"tip"|"overlap",
   "title": string (max 60 chars),
-  "detail": string (1-2 sentences, actionable, use ${currencySymbol} for amounts),
+  "detail": string (1-2 sentences, actionable, ALL amounts in ${currencySymbol}),
   "potentialSaving": number (estimated monthly amount saved in ${userCurrency}, 0 if none),
   "provider": string (relevant provider name or null)
 }]
 Focus on: overlapping services, price hikes, underused categories, bundle opportunities, annual vs monthly savings.`,
       },
-      { role: "user", content: `My subscriptions (currency: ${userCurrency}):\n${summary}` },
+      { role: "user", content: `My subscriptions (all amounts in ${userCurrency}, symbol ${currencySymbol}):\n${summary}` },
     ],
     thinking: { type: "disabled" },
   });

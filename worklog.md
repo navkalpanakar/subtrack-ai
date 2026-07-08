@@ -587,3 +587,38 @@ Stage Summary:
 - AI Insights now generate all text in the user's local currency (₹ for India, $ for US, € for EU, etc.)
 - The LLM is explicitly instructed to use the correct symbol and not default to $.
 - Currency is consistent across the entire app: dashboard, subscriptions, insights, tips, scratch cards.
+
+---
+Task ID: 17
+Agent: main
+Task: Confirm currency changes everywhere (including AI Insights) when country changes — fix insights to use client-side currency
+
+Work Log:
+- Root cause of remaining issue: The AI Insights API read currency from the User DB record, but when the user changes country in the Profile picker, the client-side global store updates instantly but the DB might lag or have a stale value. Also, the LLM was confused by mixed-currency subscriptions (some USD, some INR from previous testing).
+- Fix in src/lib/ai.ts generateInsights():
+  * Removed per-subscription currency from the summary (was confusing the LLM with mixed ₹/$)
+  * All amounts now shown with the user's global currency symbol only
+  * Strengthened the prompt: "CRITICAL CURRENCY RULE: You MUST use {symbol} for EVERY amount. Do NOT use $, USD, ₹, INR, or any other currency symbol. Even if a subscription's original amount looks like a different currency, express all amounts in {symbol}."
+  * All subscriptions now pass userCurrency (not their own stored currency) to the LLM
+- Fix in /api/ai/insights route:
+  * Currency priority: query param (from client's global store) > DB > USD
+  * Accepts ?currency=INR query param so the client passes its current global currency
+- Fix in useInsights hook:
+  * Now accepts an optional currency parameter
+  * Passes it as a query param: /api/ai/insights?currency=INR
+  * Query key includes currency so it re-fetches when currency changes
+- Fix in Insights view:
+  * Reads currency from useCurrencyStore() (the global reactive store)
+  * Passes it to useInsights(currency) so insights re-fetch with the correct currency when the user changes country
+
+Verification (Agent Browser):
+- USA (USD): Dashboard $, Subs $345.03/mo, AI Insights all $ ($27.42, $214.48, $15.49) — zero ₹ ✓
+- Switched to India (INR): AI Insights all ₹ (₹15.49, ₹199, ₹14.99/mo, ₹29.48/mo) — zero $ ✓
+- Currency now changes EVERYWHERE when country changes: dashboard, subscriptions, insights, tips, cards
+- Zero errors, lint clean.
+
+Stage Summary:
+- CONFIRMED: When the user selects USA (or location detects USA), everything shows $ including the AI Insights page.
+- When the user selects India, everything shows ₹ including the AI Insights page.
+- The AI Insights now re-fetch automatically when the currency changes (reactive query key).
+- The LLM is explicitly forbidden from using any symbol other than the user's currency.

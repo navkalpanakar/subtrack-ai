@@ -87,10 +87,10 @@ export type Insight = {
   provider?: string;
 };
 
-export function useInsights() {
+export function useInsights(currency?: string) {
   return useQuery<Insight[]>({
-    queryKey: ["insights"],
-    queryFn: () => api("/api/ai/insights"),
+    queryKey: ["insights", currency],
+    queryFn: () => api(`/api/ai/insights${currency ? `?currency=${currency}` : ""}`),
   });
 }
 

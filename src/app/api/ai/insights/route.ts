@@ -8,12 +8,14 @@ export async function GET(req: NextRequest) {
   const userId = await getUserId(req);
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  // Get the user's currency preference for correct symbols in AI insights
+  // Currency priority: query param (from client's global store) > DB > USD
+  const url = new URL(req.url);
+  const queryCurrency = url.searchParams.get("currency");
   const user = await db.user.findUnique({
     where: { id: userId },
     select: { currency: true },
   });
-  const userCurrency = user?.currency || "USD";
+  const userCurrency = queryCurrency || user?.currency || "USD";
 
   const subs = await db.subscription.findMany({
     where: { userId, status: "active" },
@@ -31,7 +33,7 @@ export async function GET(req: NextRequest) {
   if (subs.length === 0) return NextResponse.json([]);
 
   const insights = await generateInsights(
-    subs.map((s) => ({ ...s, amount: Number(s.amount), currency: s.currency || userCurrency })),
+    subs.map((s) => ({ ...s, amount: Number(s.amount), currency: userCurrency })),
     userCurrency
   );
 

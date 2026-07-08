@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SavvyMascot } from "@/components/savvy-mascot";
 import { monthlyEquivalent } from "@/lib/format";
-import { useFormatCurrency } from "@/hooks/use-currency-store";
+import { useFormatCurrency, useCurrencyStore } from "@/hooks/use-currency-store";
 
 const TYPE_META: Record<Insight["type"], { icon: LucideIcon; color: string; bg: string; label: string }> = {
   saving: { icon: TrendingDown, color: "text-primary", bg: "bg-primary/10", label: "Savings" },
@@ -20,7 +20,8 @@ const TYPE_META: Record<Insight["type"], { icon: LucideIcon; color: string; bg: 
 };
 
 export function InsightsView() {
-  const { data: insights, isLoading, refetch, isFetching } = useInsights();
+  const { currency } = useCurrencyStore();
+  const { data: insights, isLoading, refetch, isFetching } = useInsights(currency);
   const { data: subs } = useSubscriptions();
   const { data: progress } = useProgress();
   const fmt = useFormatCurrency();
