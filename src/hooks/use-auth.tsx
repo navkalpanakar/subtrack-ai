@@ -59,18 +59,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // Validate any existing token on mount.
+  // Validate any existing token OR NextAuth session on mount.
   useEffect(() => {
     let cancelled = false;
     const token = localStorage.getItem(TOKEN_KEY);
-    if (!token) {
-      // defer to avoid synchronous setState in effect
-      const t = setTimeout(() => !cancelled && setLoading(false), 0);
-      return () => {
-        cancelled = true;
-        clearTimeout(t);
-      };
-    }
+
+    // Even if there's no token, still check /api/auth/me — it might
+    // find a NextAuth session (from Google OAuth) and return the user.
     fetch("/api/auth/me")
       .then((r) => r.json())
       .then((data: { user: SessionUser | null }) => {
