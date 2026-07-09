@@ -38,6 +38,13 @@ if (googleClientId && googleClientSecret) {
       clientId: googleClientId,
       clientSecret: googleClientSecret,
       allowDangerousEmailAccountLinking: true,
+      authorization: {
+        params: {
+          scope: "openid email profile https://www.googleapis.com/auth/gmail.readonly",
+          prompt: "consent",
+          access_type: "offline",
+        },
+      },
     })
   );
 }
@@ -74,12 +81,18 @@ export const authOptions: NextAuthOptions = {
       }
       return true;
     },
-    async jwt({ token, user }) {
+    async jwt({ token, user, account }) {
+      // Store the Google OAuth access token for Gmail API calls
+      if (account?.access_token) {
+        token.accessToken = account.access_token;
+      }
+      if (account?.refresh_token) {
+        token.refreshToken = account.refresh_token;
+      }
       if (user?.email) {
         const dbUser = await db.user.findUnique({ where: { email: user.email } });
         if (dbUser) {
           token.id = dbUser.id;
-          // Issue our token and store it in the JWT so the session callback can set it as a cookie
           const appToken = issueToken(dbUser.id);
           token.appToken = appToken;
         }
@@ -88,8 +101,9 @@ export const authOptions: NextAuthOptions = {
     },
     async session({ session, token }) {
       if (session.user && token.id) {
-        (session.user as { id?: string; appToken?: string }).id = token.id as string;
+        (session.user as { id?: string; appToken?: string; accessToken?: string }).id = token.id as string;
         (session.user as { appToken?: string }).appToken = token.appToken as string;
+        (session.user as { accessToken?: string }).accessToken = token.accessToken as string;
       }
       return session;
     },
