@@ -90,17 +90,6 @@ export const authOptions: NextAuthOptions = {
       if (session.user && token.id) {
         (session.user as { id?: string }).id = token.id as string;
       }
-      // Set our app token as a readable cookie so the client can pick it up
-      if (token.appToken) {
-        // This sets a cookie that JavaScript can read
-        const res = NextResponse.next();
-        res.cookies.set("subpilot_token", token.appToken as string, {
-          httpOnly: false,
-          sameSite: "lax",
-          path: "/",
-          maxAge: 60 * 60 * 24 * 7, // 7 days
-        });
-      }
       return session;
     },
   },

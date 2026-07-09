@@ -62,11 +62,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Validate any existing token OR NextAuth session on mount.
   useEffect(() => {
     let cancelled = false;
-    const token = localStorage.getItem(TOKEN_KEY);
+
+    // Check if the login screen stored a user from Google OAuth
+    const storedUser = localStorage.getItem("subpilot_user");
+    if (storedUser) {
+      try {
+        const parsed = JSON.parse(storedUser) as SessionUser;
+        if (parsed?.id) {
+          // Use setTimeout to avoid synchronous setState in effect
+          setTimeout(() => {
+            if (!cancelled) {
+              setUser(parsed);
+              localStorage.removeItem("subpilot_user");
+            }
+          }, 0);
+          // Still fetch /api/auth/me to validate
+          fetch("/api/auth/me", { credentials: "include" })
+            .then((r) => r.json())
+            .then((data: { user: SessionUser | null }) => {
+              if (!cancelled && data.user) setUser(data.user);
+            })
+            .catch(() => {})
+            .finally(() => {
+              if (!cancelled) setLoading(false);
+            });
+          return;
+        }
+      } catch {
+        // invalid JSON — continue
+      }
+    }
 
     // Even if there's no token, still check /api/auth/me — it might
     // find a NextAuth session (from Google OAuth) and return the user.
-    fetch("/api/auth/me")
+    fetch("/api/auth/me", { credentials: "include" })
       .then((r) => r.json())
       .then((data: { user: SessionUser | null }) => {
         if (!cancelled) setUser(data.user);

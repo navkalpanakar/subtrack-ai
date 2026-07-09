@@ -35,15 +35,38 @@ export function LoginScreen() {
   const [otp, setOtp] = useState("");
   const [devOtp, setDevOtp] = useState<string | null>(null);
 
-  // OAuth handler — uses real NextAuth OAuth. Requires env vars to be set.
-  // If not configured, shows a helpful toast telling the user to sign in
-  // with email or demo instead.
-  const handleGoogle = () => {
-    if (oauthProviders.has("google")) {
-      setLoading("google");
-      signIn("google", { callbackUrl: "/" });
-    } else {
+  // OAuth handler — uses NextAuth's signIn with redirect: false so we can
+  // handle the result client-side. If there's an existing NextAuth session
+  // (from a previous Google login), it fetches the user via /api/auth/me.
+  const handleGoogle = async () => {
+    if (!oauthProviders.has("google")) {
       toast.error("Google sign-in is not configured yet. Use email or demo for now.");
+      return;
+    }
+    setLoading("google");
+    // Use redirect: false so we stay on the same page and can handle the result
+    const result = await signIn("google", { callbackUrl: "/", redirect: false });
+    if (result?.error) {
+      toast.error("Google sign-in failed. Try again.");
+      setLoading(null);
+    } else if (result?.ok) {
+      // Sign-in successful — fetch the user via /api/auth/me which checks
+      // the NextAuth session server-side
+      try {
+        const meRes = await fetch("/api/auth/me", { credentials: "include" });
+        const meData = await meRes.json();
+        if (meData?.user) {
+          // Store the user in localStorage so the auth hook picks it up
+          localStorage.setItem("subpilot_user", JSON.stringify(meData.user));
+          window.location.href = "/";
+        } else {
+          // Fallback: just reload the page — the NextAuth cookie should be set
+          window.location.href = "/";
+        }
+      } catch {
+        // Fallback: just reload
+        window.location.href = "/";
+      }
     }
   };
 
