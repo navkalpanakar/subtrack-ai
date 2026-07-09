@@ -13,17 +13,28 @@ export function RootGate() {
   const [splashDone, setSplashDone] = useState(false);
 
   useEffect(() => {
-    // Check for auth_token in URL (from Google OAuth bridge redirect)
     if (typeof window !== "undefined") {
+      // Check for auth_token in URL (from bridge redirect)
       const urlParams = new URLSearchParams(window.location.search);
       const authToken = urlParams.get("auth_token");
       if (authToken) {
         localStorage.setItem("subpilot_token", authToken);
-        // Clean the URL
         window.history.replaceState({}, document.title, window.location.pathname);
-        // Reload so the auth hook picks up the token
         window.location.reload();
         return;
+      }
+
+      // Check for subpilot_token cookie (set by NextAuth session callback for Google OAuth)
+      const cookies = document.cookie.split(";");
+      for (const cookie of cookies) {
+        const [name, value] = cookie.trim().split("=");
+        if (name === "subpilot_token" && value) {
+          localStorage.setItem("subpilot_token", value);
+          // Delete the cookie (it's now in localStorage)
+          document.cookie = "subpilot_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+          window.location.reload();
+          return;
+        }
       }
     }
 

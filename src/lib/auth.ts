@@ -1,7 +1,10 @@
 import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
+import { NextResponse } from "next/server";
 import { db } from "./db";
+import { issueToken } from "./token-store";
+import { ensureUserProgress } from "./gamification";
 
 // Google OAuth is enabled when env vars are present.
 // Email OTP is the primary auth method (always available).
@@ -50,11 +53,10 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async signIn({ user }) {
       // For Google OAuth: ensure user row exists in our DB.
-      // Don't seed demo data — Google users start with an empty dashboard.
       if (user?.email) {
-        const existing = await db.user.findUnique({ where: { email: user.email } });
-        if (!existing && user.email) {
-          await db.user.create({
+        let existing = await db.user.findUnique({ where: { email: user.email } });
+        if (!existing) {
+          existing = await db.user.create({
             data: {
               email: user.email,
               name: user.name || null,
@@ -62,13 +64,25 @@ export const authOptions: NextAuthOptions = {
             },
           });
         }
+        await ensureUserProgress(existing.id);
+        // Link the email provider
+        await db.linkedAccount.upsert({
+          where: { userId_provider: { userId: existing.id, provider: "email" } },
+          update: {},
+          create: { userId: existing.id, provider: "email", identifier: user.email },
+        });
       }
       return true;
     },
     async jwt({ token, user }) {
       if (user?.email) {
         const dbUser = await db.user.findUnique({ where: { email: user.email } });
-        if (dbUser) token.id = dbUser.id;
+        if (dbUser) {
+          token.id = dbUser.id;
+          // Issue our token and store it in the JWT so the session callback can set it as a cookie
+          const appToken = issueToken(dbUser.id);
+          token.appToken = appToken;
+        }
       }
       return token;
     },
@@ -76,12 +90,18 @@ export const authOptions: NextAuthOptions = {
       if (session.user && token.id) {
         (session.user as { id?: string }).id = token.id as string;
       }
+      // Set our app token as a readable cookie so the client can pick it up
+      if (token.appToken) {
+        // This sets a cookie that JavaScript can read
+        const res = NextResponse.next();
+        res.cookies.set("subpilot_token", token.appToken as string, {
+          httpOnly: false,
+          sameSite: "lax",
+          path: "/",
+          maxAge: 60 * 60 * 24 * 7, // 7 days
+        });
+      }
       return session;
-    },
-    async redirect({ baseUrl }) {
-      // After Google OAuth, redirect to the bridge endpoint which reads
-      // the session server-side and redirects with ?auth_token=xxx
-      return `${baseUrl}/api/auth/bridge-token`;
     },
   },
   pages: { signIn: "/" },
