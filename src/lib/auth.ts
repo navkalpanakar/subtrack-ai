@@ -78,6 +78,11 @@ export const authOptions: NextAuthOptions = {
       }
       return session;
     },
+    async redirect({ baseUrl }) {
+      // After Google OAuth, redirect to the bridge endpoint which reads
+      // the session server-side and redirects with ?auth_token=xxx
+      return `${baseUrl}/api/auth/bridge-token`;
+    },
   },
   pages: { signIn: "/" },
   secret: process.env.NEXTAUTH_SECRET || "subpilot-dev-secret-change-me",
