@@ -63,40 +63,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let cancelled = false;
 
-    // Check if the login screen stored a user from Google OAuth
-    const storedUser = localStorage.getItem("subpilot_user");
-    if (storedUser) {
-      try {
-        const parsed = JSON.parse(storedUser) as SessionUser;
-        if (parsed?.id) {
-          // Use setTimeout to avoid synchronous setState in effect
-          setTimeout(() => {
-            if (!cancelled) {
-              setUser(parsed);
-              localStorage.removeItem("subpilot_user");
-            }
-          }, 0);
-          // Still fetch /api/auth/me to validate
-          fetch("/api/auth/me", { credentials: "include" })
-            .then((r) => r.json())
-            .then((data: { user: SessionUser | null }) => {
-              if (!cancelled && data.user) setUser(data.user);
-            })
-            .catch(() => {})
-            .finally(() => {
-              if (!cancelled) setLoading(false);
-            });
-          return;
-        }
-      } catch {
-        // invalid JSON — continue
-      }
+    const existingToken = localStorage.getItem(TOKEN_KEY);
+
+    // If we already have a token, validate it via /api/auth/me
+    if (existingToken) {
+      fetch("/api/auth/me", { credentials: "include" })
+        .then((r) => r.json())
+        .then((data: { user: SessionUser | null }) => {
+          if (!cancelled) setUser(data.user);
+        })
+        .catch(() => {
+          if (!cancelled) setUser(null);
+        })
+        .finally(() => {
+          if (!cancelled) setLoading(false);
+        });
+      return () => {
+        cancelled = true;
+      };
     }
 
-    // Even if there's no token, still check /api/auth/me — it might
-    // find a NextAuth session (from Google OAuth) and return the user.
-    fetch("/api/auth/me", { credentials: "include" })
+    // No token — check NextAuth's /api/auth/session for a Google OAuth session.
+    // NextAuth's session endpoint returns the session JSON including our appToken.
+    fetch("/api/auth/session", { credentials: "include" })
       .then((r) => r.json())
+      .then((data: { user?: { email?: string; name?: string; image?: string; appToken?: string } }) => {
+        if (!cancelled && data?.user?.appToken) {
+          // Found a NextAuth session with our appToken — store it
+          localStorage.setItem(TOKEN_KEY, data.user.appToken);
+          // Now fetch the user via /api/auth/me (which will find our token)
+          return fetch("/api/auth/me", { credentials: "include" }).then((r) => r.json());
+        }
+        return { user: null };
+      })
       .then((data: { user: SessionUser | null }) => {
         if (!cancelled) setUser(data.user);
       })
