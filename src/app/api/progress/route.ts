@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getUserId } from "@/lib/session";
 import { getLevelInfo, ensureUserProgress } from "@/lib/gamification";
+import { savingsMilestoneAmount, formatMoney } from "@/lib/currency";
 
 // Returns the user's full gamification state: points, level, streak,
 // check-in availability, challenges, redeemed rewards, badges.
@@ -12,6 +13,10 @@ export async function GET(req: NextRequest) {
   await ensureUserProgress(userId);
   const progress = await db.userProgress.findUnique({ where: { userId } });
   if (!progress) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  // Fetch the user's currency so savings + badge details are localized
+  const me = await db.user.findUnique({ where: { id: userId }, select: { currency: true } });
+  const userCurrency = me?.currency || "USD";
 
   const level = getLevelInfo(progress.points);
   const last = progress.lastCheckIn;
@@ -42,6 +47,7 @@ export async function GET(req: NextRequest) {
     canCheckIn,
     savingsGoal: progress.savingsGoal,
     totalSaved: progress.totalSaved,
+    currency: userCurrency,
     challenges: challenges.map((c) => ({
       id: c.challenge.id,
       title: c.challenge.title,
@@ -67,7 +73,10 @@ export async function GET(req: NextRequest) {
     badges: badges.map((b) => ({
       key: b.badge.key,
       title: b.badge.title,
-      detail: b.badge.detail,
+      // Localize the savings milestone badge detail per user currency
+      detail: b.badge.key === "savings_100"
+        ? `Saved ${formatMoney(savingsMilestoneAmount(userCurrency), userCurrency)} total`
+        : b.badge.detail,
       icon: b.badge.icon,
       earnedAt: b.earnedAt,
     })),

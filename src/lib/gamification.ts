@@ -68,7 +68,7 @@ export const BADGES = [
   { key: "deal_hunter", title: "Deal Hunter", detail: "Unlocked your first reward", icon: "🎁" },
   { key: "streak_7", title: "Week Warrior", detail: "7-day check-in streak", icon: "⚡" },
   { key: "level_pro", title: "Savvy Pro", detail: "Reached Pro level", icon: "🏆" },
-  { key: "savings_100", title: "Centurion", detail: "Saved $100 total", icon: "💯" },
+  { key: "savings_100", title: "Centurion", detail: "Big saver — cancelled a subscription to cut costs", icon: "💯" },
 ] as const;
 
 export async function awardBadge(userId: string, key: string) {

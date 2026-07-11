@@ -812,3 +812,41 @@ Stage Summary:
 - .env configured for subtrack.scanmymenu.in.
 - Oracle Cloud guide covers everything from SSH to SSL.
 - Freemium model: free (3 subs) → premium ($4.99/mo or ₹99/mo, unlimited).
+
+---
+Task ID: 23
+Agent: main
+Task: Fix reward currency showing $ instead of local currency (₹ for India) on Rewards screen
+
+Work Log:
+- User reported: even though location detected as India, the weekly leaderboard "Top prize" showed "$25" instead of "₹2,000"
+- Root cause: the leaderboard API route (`/api/games/leaderboard/route.ts`) hardcoded the prize string as "1 free subscription of your choice (up to $25 value)" — it did not consult the user's currency
+- Secondary issue: the `savings_100` (Centurion) badge seed detail was hardcoded as "Saved $100 total" in `src/lib/gamification.ts`
+- Added currency localization utilities to `src/lib/currency.ts`:
+  * `WEEKLY_PRIZE_BY_CURRENCY` — nice round-number prize values per currency (≈ $25 USD): INR ₹2,000, GBP £20, EUR €25, JPY ¥3,000, AUD A$35, etc.
+  * `SAVINGS_MILESTONE_BY_CURRENCY` — nice round-number savings milestone per currency (≈ $100 USD): INR ₹8,000, GBP £80, EUR €100, etc.
+  * `formatMoney(amount, currency)` — Intl.NumberFormat-based formatter with graceful fallback
+  * `weeklyPrizeAmount(currency)` and `savingsMilestoneAmount(currency)` helpers
+- Fixed `/api/games/leaderboard/route.ts`:
+  * Now fetches the user's currency from the DB (`me.currency`)
+  * Builds the prize string using `formatMoney(weeklyPrizeAmount(userCurrency), userCurrency)`
+  * Also returns `prizeCurrency` and `prizeAmount` fields for client use
+- Fixed `/api/progress/route.ts`:
+  * Now fetches user's currency and returns it as `currency` field
+  * Dynamically localizes the `savings_100` badge detail per user: "Saved ₹8,000 total" for India, "Saved $100 total" for US, etc.
+- Updated `src/lib/gamification.ts` seed: `savings_100` badge detail changed from "Saved $100 total" to generic "Big saver — cancelled a subscription to cut costs" (DB-stored fallback; the per-user localized version comes from the progress API)
+- Updated existing DB badge records: ran `UPDATE Badge SET detail = 'Big saver...' WHERE key = 'savings_100'`
+
+Verification (Agent Browser + API tests):
+- Created test user with INR currency (India location) → leaderboard API returned: `"prize": "1 free subscription of your choice (up to ₹2,000 value)"`, `"prizeCurrency": "INR"` ✓
+- Created test user with USD currency (US location) → leaderboard API returned: `"prize": "...up to $25 value"`, `"prizeCurrency": "USD"` ✓
+- Agent Browser (iPhone 14): logged in as INR user, navigated to Rewards tab, DOM text confirmed: "TOP PRIZE — 1 free subscription of your choice (up to ₹2,000 value)" ✓
+- VLM screenshot verification confirmed the ₹2,000 prize is visually rendered correctly ✓
+- Currency utility unit test: INR ₹2,000, USD $25, GBP £20, EUR €25, JPY ¥3,000, AUD A$35, CAD CA$35, SGD SGD 35, AED AED 100, BRL R$150 — all correct ✓
+- Lint clean, no dev server errors
+
+Stage Summary:
+- The weekly leaderboard top prize is now fully currency-aware: Indian users see ₹2,000, US users see $25, UK users see £20, EU users see €25, etc.
+- The Centurion badge detail is now dynamically localized per user's currency via the progress API.
+- All 40+ currencies supported with nice round-number equivalents.
+- Test users cleaned up from DB.

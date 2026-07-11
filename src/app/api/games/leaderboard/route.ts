@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getUserId } from "@/lib/session";
+import { weeklyPrizeAmount, formatMoney } from "@/lib/currency";
 
 // Weekly leaderboard. Top user wins a free subscription.
 // In preview (single user), we seed realistic competitors so the board
@@ -8,6 +9,10 @@ import { getUserId } from "@/lib/session";
 export async function GET(req: NextRequest) {
   const userId = await getUserId(req);
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // Fetch the user's currency so the prize is shown in their local currency
+  const me = await db.user.findUnique({ where: { id: userId }, select: { currency: true, countryCode: true } });
+  const userCurrency = me?.currency || "USD";
 
   const allProgress = await db.userProgress.findMany({
     include: { user: { select: { name: true, email: true, phone: true, image: true } } },
@@ -47,11 +52,19 @@ export async function GET(req: NextRequest) {
 
   const myRank = entries.find((e) => e.isCurrentUser)?.rank || entries.length;
 
+  // Localized prize: show the reward value in the user's own currency
+  // (e.g. ₹2,000 for India, £20 for UK, $25 for US).
+  const prizeValue = weeklyPrizeAmount(userCurrency);
+  const formattedPrize = formatMoney(prizeValue, userCurrency);
+  const prize = `1 free subscription of your choice (up to ${formattedPrize} value)`;
+
   return NextResponse.json({
     entries: entries.slice(0, 10),
     myRank,
     totalUsers: Math.max(entries.length, 8),
-    prize: "1 free subscription of your choice (up to $25 value)",
+    prize,
+    prizeCurrency: userCurrency,
+    prizeAmount: prizeValue,
     resetsIn: daysUntilNextMonday(),
   });
 }
