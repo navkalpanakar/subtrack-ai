@@ -1,8 +1,12 @@
-// Centralized AI helpers (server-only). Wraps z-ai-web-dev-sdk for
-// natural-language parsing, receipt vision scanning, savings insights,
-// and live-offer web search.
+// Centralized AI helpers (server-only). Uses the Z.ai public API
+// (Zhipu Open Platform at api.z.ai) for natural-language parsing,
+// receipt vision scanning, savings insights, and live-offer web search.
+//
+// On the Z.ai SANDBOX (dev), it auto-falls back to z-ai-web-dev-sdk
+// which talks to internal-api.z.ai. On a PUBLIC server (production),
+// set ZAI_API_KEY in .env and it uses the public API directly.
 
-import ZAI from "z-ai-web-dev-sdk";
+import { chatCompletion, visionCompletion, webSearch } from "./zai-client";
 
 export type ParsedSubscription = {
   name: string;
@@ -21,11 +25,6 @@ export type PriceVerification = {
   expectedAmount: number | null;
   reason: string;
 };
-
-const zaiPromise = ZAI.create();
-function getZai() {
-  return zaiPromise;
-}
 
 // Minimal currency symbol map for the AI prompts (avoids importing the client-side
 // currency lib into server code).
@@ -53,14 +52,12 @@ export async function parseSubscriptionText(
   text: string,
   currency = "USD"
 ): Promise<ParsedSubscription> {
-  const zai = await getZai();
   const today = new Date().toISOString().slice(0, 10);
 
-  const completion = await zai.chat.completions.create({
-    messages: [
-      {
-        role: "assistant",
-        content: `You are a subscription parser. Extract subscription details from user text and respond with VALID JSON ONLY (no markdown, no prose). Today is ${today}. The user's local currency is ${currency} — use it unless the text explicitly states another currency.
+  const raw = await chatCompletion([
+    {
+      role: "system",
+      content: `You are a subscription parser. Extract subscription details from user text and respond with VALID JSON ONLY (no markdown, no prose). Today is ${today}. The user's local currency is ${currency} — use it unless the text explicitly states another currency.
 Schema:
 {
   "name": string,
@@ -73,13 +70,10 @@ Schema:
   "notes": string
 }
 If a field is unknown use null. Infer the next billing date from phrases like "renews the 5th", "on the 22nd", etc., picking the next upcoming date from today. Pick a fitting category.`,
-      },
-      { role: "user", content: text },
-    ],
-    thinking: { type: "disabled" },
-  });
+    },
+    { role: "user", content: text },
+  ]);
 
-  const raw = completion.choices[0]?.message?.content || "";
   const cleaned = raw.replace(/```json/gi, "").replace(/```/g, "").trim();
   try {
     const parsed = JSON.parse(cleaned) as ParsedSubscription;
@@ -116,37 +110,32 @@ export async function verifySubscriptionPrice(
   if (!provider || !userAmount || userAmount <= 0) {
     return { needsVerification: false, userAmount, expectedAmount: null, reason: "" };
   }
-  const zai = await getZai();
   try {
-    const results = await zai.functions.invoke("web_search", {
-      query: `${provider} subscription plan price ${new Date().getFullYear()} ${currency}`,
-      num: 6,
-    });
-    if (!Array.isArray(results) || results.length === 0) {
+    const results = await webSearch(
+      `${provider} subscription plan price ${new Date().getFullYear()} ${currency}`,
+      6
+    );
+    if (results.length === 0) {
       return { needsVerification: false, userAmount, expectedAmount: null, reason: "" };
     }
     const snippets = results
-      .map((r: { name?: string; snippet?: string }) => `${r.name || ""}: ${r.snippet || ""}`)
+      .map((r) => `${r.name || ""}: ${r.snippet || ""}`)
       .join("\n");
 
-    const completion = await zai.chat.completions.create({
-      messages: [
-        {
-          role: "assistant",
-          content: `You verify subscription prices. The user said they pay ${userAmount} ${currency} ${billingCycle || "monthly"} for ${provider}. Based on these web search results, find the closest matching plan's current price. Respond with VALID JSON ONLY:
+    const raw = await chatCompletion([
+      {
+        role: "system",
+        content: `You verify subscription prices. The user said they pay ${userAmount} ${currency} ${billingCycle || "monthly"} for ${provider}. Based on these web search results, find the closest matching plan's current price. Respond with VALID JSON ONLY:
 {
   "expectedAmount": number|null,
   "matches": boolean,
   "reason": string (1 sentence explaining what price you found and from what plan)
 }
 If you can't find a clear price, set expectedAmount to null and matches to true.`,
-        },
-        { role: "user", content: `User: ${userAmount} ${currency} ${billingCycle} for ${provider}\n\nWeb results:\n${snippets}` },
-      ],
-      thinking: { type: "disabled" },
-    });
+      },
+      { role: "user", content: `User: ${userAmount} ${currency} ${billingCycle} for ${provider}\n\nWeb results:\n${snippets}` },
+    ]);
 
-    const raw = completion.choices[0]?.message?.content || "{}";
     const cleaned = raw.replace(/```json/gi, "").replace(/```/g, "").trim();
     const parsed = JSON.parse(cleaned) as {
       expectedAmount: number | null;
@@ -188,17 +177,15 @@ If you can't find a clear price, set expectedAmount to null and matches to true.
 export async function scanReceiptImage(
   dataUrl: string
 ): Promise<ParsedSubscription[]> {
-  const zai = await getZai();
   const today = new Date().toISOString().slice(0, 10);
 
-  const response = await zai.chat.completions.createVision({
-    messages: [
-      {
-        role: "user",
-        content: [
-          {
-            type: "text",
-            text: `You are a receipt scanner for subscription billing. Extract every subscription shown in this image. Respond with VALID JSON ONLY (no markdown): an array of objects with this schema. Today is ${today}.
+  const raw = await visionCompletion([
+    {
+      role: "user",
+      content: [
+        {
+          type: "text",
+          text: `You are a receipt scanner for subscription billing. Extract every subscription shown in this image. Respond with VALID JSON ONLY (no markdown): an array of objects with this schema. Today is ${today}.
 [{
   "name": string,
   "provider": string,
@@ -210,15 +197,12 @@ export async function scanReceiptImage(
   "notes": string
 }]
 If no subscription is found, return [].`,
-          },
-          { type: "image_url", image_url: { url: dataUrl } },
-        ],
-      },
-    ],
-    thinking: { type: "disabled" },
-  });
+        },
+        { type: "image_url", image_url: { url: dataUrl } },
+      ],
+    },
+  ]);
 
-  const raw = response.choices[0]?.message?.content || "[]";
   const cleaned = raw.replace(/```json/gi, "").replace(/```/g, "").trim();
   try {
     const parsed = JSON.parse(cleaned);
@@ -260,7 +244,6 @@ export async function generateInsights(
     dateOfBirth?: string | null;
   }
 ): Promise<Insight[]> {
-  const zai = await getZai();
   const currencySymbol = getCurrencySymbol(userCurrency);
 
   // ─── Fetch LIVE current prices via web search ──────────────────
@@ -270,13 +253,13 @@ export async function generateInsights(
   const subsToSearch = subscriptions.slice(0, 3); // limit to 3 for speed
   for (const sub of subsToSearch) {
     try {
-      const results = await zai.functions.invoke("web_search", {
-        query: `${sub.provider} subscription price ${userCurrency}`,
-        num: 2,
-      });
-      if (Array.isArray(results) && results.length > 0) {
+      const results = await webSearch(
+        `${sub.provider} subscription price ${userCurrency}`,
+        2
+      );
+      if (results.length > 0) {
         const snippets = results
-          .map((r: { snippet?: string }) => r.snippet || "")
+          .map((r) => r.snippet || "")
           .filter(Boolean)
           .join(" | ");
         if (snippets) {
@@ -311,11 +294,10 @@ export async function generateInsights(
     )
     .join("\n");
 
-  const completion = await zai.chat.completions.create({
-    messages: [
-      {
-        role: "assistant",
-        content: `You are a sharp subscription-finance advisor with access to LIVE web pricing data. Analyze the user's subscriptions and return 3-6 actionable insights as VALID JSON ONLY (no markdown).
+  const raw = await chatCompletion([
+    {
+      role: "system",
+      content: `You are a sharp subscription-finance advisor with access to LIVE web pricing data. Analyze the user's subscriptions and return 3-6 actionable insights as VALID JSON ONLY (no markdown).
 
 You have TWO data sources:
 1. What the user PAYS (their entered amounts)
@@ -350,13 +332,10 @@ Schema:
   "provider": string (relevant provider name or null),
   "action": "find_annual"|"find_student"|"find_alternative"|"cancel"|"downgrade"|"search_offer"
 }]`,
-      },
-      { role: "user", content: `My subscriptions (user pays these amounts in ${userCurrency}):\n${summary}${livePriceContext}${profileContext}` },
-    ],
-    thinking: { type: "disabled" },
-  });
+    },
+    { role: "user", content: `My subscriptions (user pays these amounts in ${userCurrency}):\n${summary}${livePriceContext}${profileContext}` },
+  ]);
 
-  const raw = completion.choices[0]?.message?.content || "[]";
   const cleaned = raw.replace(/```json/gi, "").replace(/```/g, "").trim();
   try {
     const parsed = JSON.parse(cleaned);
@@ -382,26 +361,25 @@ export type Offer = {
  * Search the web for current offers / deals from a subscription provider.
  */
 export async function findProviderOffers(providerName: string): Promise<Offer[]> {
-  const zai = await getZai();
   try {
-    const results = await zai.functions.invoke("web_search", {
-      query: `${providerName} subscription deal discount promo offer 2025`,
-      num: 6,
-    });
+    const results = await webSearch(
+      `${providerName} subscription deal discount promo offer ${new Date().getFullYear()}`,
+      6
+    );
 
     if (!Array.isArray(results)) return [];
 
     const offers: Offer[] = results
       .filter(
-        (r: { name?: string; snippet?: string; url?: string }) =>
+        (r) =>
           r.name && r.url
       )
       .slice(0, 4)
-      .map((r: { name: string; snippet: string; url: string; date?: string }) => ({
+      .map((r) => ({
         provider: providerName,
-        title: r.name,
+        title: r.name || "",
         detail: r.snippet || "",
-        url: r.url,
+        url: r.url || "",
         validUntil: r.date || undefined,
       }));
 
@@ -418,14 +396,12 @@ export async function findProviderOffers(providerName: string): Promise<Offer[]>
 export async function parseEmailForSubscriptions(
   content: string
 ): Promise<ParsedSubscription[]> {
-  const zai = await getZai();
   const today = new Date().toISOString().slice(0, 10);
 
-  const completion = await zai.chat.completions.create({
-    messages: [
-      {
-        role: "assistant",
-        content: `You scan email bodies / pasted text for subscription billing mentions. Extract every subscription you can identify. Respond with VALID JSON ONLY (no markdown): an array. Today is ${today}.
+  const raw = await chatCompletion([
+    {
+      role: "system",
+      content: `You scan email bodies / pasted text for subscription billing mentions. Extract every subscription you can identify. Respond with VALID JSON ONLY (no markdown): an array. Today is ${today}.
 [{
   "name": string,
   "provider": string,
@@ -437,13 +413,10 @@ export async function parseEmailForSubscriptions(
   "notes": string
 }]
 If none found, return [].`,
-      },
-      { role: "user", content: content.slice(0, 6000) },
-    ],
-    thinking: { type: "disabled" },
-  });
+    },
+    { role: "user", content: content.slice(0, 6000) },
+  ]);
 
-  const raw = completion.choices[0]?.message?.content || "[]";
   const cleaned = raw.replace(/```json/gi, "").replace(/```/g, "").trim();
   try {
     const parsed = JSON.parse(cleaned);

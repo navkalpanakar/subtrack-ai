@@ -850,3 +850,36 @@ Stage Summary:
 - The Centurion badge detail is now dynamically localized per user's currency via the progress API.
 - All 40+ currencies supported with nice round-number equivalents.
 - Test users cleaned up from DB.
+
+---
+Task ID: 24
+Agent: main
+Task: Make z.ai AI features work on public server (Oracle Cloud) — refactor to use Z.ai public API instead of sandbox-only SDK
+
+Work Log:
+- Root cause: `z-ai-web-dev-sdk` reads `.z-ai-config` with `baseUrl: "https://internal-api.z.ai/v1"` which resolves to private IPs (172.25.x.x) — only reachable inside the Z.ai sandbox. From Oracle Cloud, every AI call times out after 10s.
+- Investigated public Z.ai API (Zhipu Open Platform): `https://api.z.ai/api/paas/v4/chat/completions` — confirmed reachable from public server (HTTP 401 with fake key = endpoint exists, just needs auth)
+- Determined the SDK can't be reconfigured by just editing `.z-ai-config` because:
+  1. Vision endpoint path differs (`/chat/completions/vision` vs `/chat/completions` with vision model)
+  2. Web search endpoint (`/functions/invoke`) doesn't exist on public API — uses `tools` parameter instead
+  3. SDK sends sandbox-specific headers (X-Token, X-Chat-Id) that public API doesn't expect
+- Created `src/lib/zai-client.ts` — thin wrapper that calls the public Z.ai API directly via fetch():
+  * `chatCompletion(messages, options)` — text LLM calls (model: glm-4-flash, free tier)
+  * `visionCompletion(messages, options)` — vision/receipt scanning (model: glm-4v-flash)
+  * `webSearch(query, num)` — web search via Z.ai tools API with fallback to LLM knowledge
+  * Auto-detects `ZAI_API_KEY` env var: if set → uses public API; if not set → falls back to sandbox SDK
+  * `isPublicApiConfigured()` helper for checking mode
+- Refactored `src/lib/ai.ts` to use `zai-client` instead of `z-ai-web-dev-sdk` directly:
+  * All 5 exported functions preserved with identical signatures (parseSubscriptionText, verifySubscriptionPrice, scanReceiptImage, generateInsights, findProviderOffers, parseEmailForSubscriptions)
+  * No other code in the app needs to change
+  * System prompts changed from `role: "assistant"` to `role: "system"` (standard OpenAI format for the public API)
+- Tested in sandbox (no ZAI_API_KEY): SDK fallback works — parseSubscriptionText correctly parsed "Netflix ₹649 monthly renews on the 15th" into structured JSON; findProviderOffers returned 4 live Netflix deals ✓
+- Tested with fake ZAI_API_KEY: public API path triggered correctly — got proper 401 error from api.z.ai (not a timeout), error caught gracefully, findProviderOffers returned [] ✓
+- Lint clean, dev server healthy
+
+Stage Summary:
+- AI features (insights, quick-add parse, receipt scan, live offers) now support the Z.ai PUBLIC API
+- On the Z.ai sandbox (dev): auto-falls back to the SDK — no config needed
+- On Oracle Cloud (production): just add `ZAI_API_KEY=<real_key>` to .env, rebuild, restart PM2
+- Same GLM-4 family of models, same AI quality — just using the public endpoint instead of the sandbox-only one
+- User needs to get a Z.ai API key from https://z.ai open platform console
