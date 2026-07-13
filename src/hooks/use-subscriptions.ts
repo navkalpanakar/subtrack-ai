@@ -133,9 +133,19 @@ export async function scanInbox(provider: "gmail" | "outlook" | "apple") {
       : "/api/scan/apple";
   return api<{
     connected: boolean;
-    scanSource: string;
+    scanSource?: string;
+    error?: string;
+    message?: string;
     detected: Array<Record<string, unknown>>;
   }>(url);
+}
+
+// Checks whether the user has an active Google OAuth session (required for
+// Gmail inbox sync). Email/OTP users return connected:false.
+export async function checkGmailConnection() {
+  return api<{ connected: boolean; reason?: string; message?: string; email?: string | null }>(
+    "/api/scan/gmail/status"
+  );
 }
 
 export async function scanReceipt(image: string) {

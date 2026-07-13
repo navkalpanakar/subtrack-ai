@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   Drawer,
   DrawerContent,
@@ -32,6 +32,7 @@ import {
   scanReceipt,
   scanEmail,
   scanInbox,
+  checkGmailConnection,
   fetchSuggestions,
   type Subscription,
 } from "@/hooks/use-subscriptions";
@@ -87,6 +88,18 @@ export function QuickAddSheet({
   const { data: linkedAccounts } = useLinkedAccounts();
   const linkAccount = useLinkAccount();
   const { currency, setCurrency: setGlobalCurrency } = useCurrencyStore();
+
+  // Gmail connection state — true only if the user has an active Google
+  // OAuth session with a valid access token. Email/OTP users get false.
+  const [gmailConnected, setGmailConnected] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (!open || mode !== "email") return;
+    let cancelled = false;
+    checkGmailConnection()
+      .then((res) => { if (!cancelled) setGmailConnected(res.connected); })
+      .catch(() => { if (!cancelled) setGmailConnected(false); });
+    return () => { cancelled = true; };
+  }, [open, mode]);
 
   // AI natural language state
   const [nlText, setNlText] = useState("");
@@ -314,12 +327,33 @@ export function QuickAddSheet({
   const handleInboxSync = async (provider: "gmail" | "outlook" | "apple") => {
     setEmailParsing(true);
     try {
-      const { detected } = await scanInbox(provider);
-      // Mark this provider as linked to the user's account
+      const result = await scanInbox(provider);
       const providerKey = provider === "gmail" ? "google" : provider === "outlook" ? "microsoft" : "apple";
-      await linkAccount.mutateAsync({ provider: providerKey, identifier: `${provider} preview` });
+      const labels = { gmail: "Gmail", outlook: "Outlook", apple: "Apple Mail" };
+
+      // Not connected — show a clear, actionable message
+      if (result.connected === false) {
+        const msg = result.error || result.message || `${labels[provider]} sync isn't available.`;
+        toast.error(`${labels[provider]} not available`, {
+          description: msg,
+          duration: 8000,
+        });
+        return;
+      }
+
+      // Scan succeeded — link the account
+      await linkAccount.mutateAsync({
+        provider: providerKey,
+        identifier: `${provider} linked`,
+      });
+
+      const detected = result.detected || [];
       if (detected.length === 0) {
-        toast.error("No subscriptions detected.");
+        toast(`No subscriptions found in ${labels[provider]}.`, {
+          description:
+            "Try the 'Paste email' option below — just paste any billing email you've received and we'll extract the subscription details.",
+          duration: 6000,
+        });
         return;
       }
       setBulkDrafts(
@@ -339,10 +373,9 @@ export function QuickAddSheet({
           usageTags: "",
         }))
       );
-      const labels = { gmail: "Gmail", outlook: "Outlook", apple: "Apple Mail" };
       toast.success(`Synced ${detected.length} subscription(s) from ${labels[provider]} — account linked!`);
     } catch {
-      toast.error("Inbox sync failed.");
+      toast.error("Inbox sync failed. Try the 'Paste email' option instead.");
     } finally {
       setEmailParsing(false);
     }
@@ -630,14 +663,31 @@ export function QuickAddSheet({
                   </div>
                 </div>
 
+                {/* Gmail connection warning for email/OTP users */}
+                {gmailConnected === false && (
+                  <div className="rounded-xl bg-amber-500/10 border border-amber-500/30 p-3 flex items-start gap-2">
+                    <AlertCircle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+                    <div className="text-[11px] leading-relaxed">
+                      <p className="font-medium text-amber-700 dark:text-amber-400">
+                        Gmail sync needs Google sign-in
+                      </p>
+                      <p className="text-muted-foreground mt-0.5">
+                        You signed in with email. To scan your Gmail inbox, log out and use
+                        <span className="font-medium"> Continue with Google</span>. Or use
+                        <span className="font-medium"> Paste email</span> below to add subscriptions manually.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 {/* Provider one-tap buttons */}
                 <div className="grid grid-cols-3 gap-2">
                   <InboxButton
                     label="Gmail"
                     color="#EA4335"
-                    connected={linkedAccounts?.google}
+                    connected={gmailConnected === true}
                     onClick={() => handleInboxSync("gmail")}
-                    disabled={emailParsing}
+                    disabled={emailParsing || gmailConnected === false}
                   />
                   <InboxButton
                     label="Outlook"
