@@ -883,3 +883,42 @@ Stage Summary:
 - On Oracle Cloud (production): just add `ZAI_API_KEY=<real_key>` to .env, rebuild, restart PM2
 - Same GLM-4 family of models, same AI quality — just using the public endpoint instead of the sandbox-only one
 - User needs to get a Z.ai API key from https://z.ai open platform console
+
+---
+Task ID: 25
+Agent: main
+Task: Fix Gmail sync bug — email-users saw "account linked" but "no subscriptions found"
+
+Work Log:
+- Bug report: User signed in via email (not Google), clicked "one-tap inbox sync for Google", saw "account linked" but "no subscriptions found"
+- Root cause analysis in src/components/quick-add-sheet.tsx handleInboxSync():
+  * Frontend called scanInbox() → backend returned {connected: false, error: "No Gmail access..."}
+  * BUT frontend IGNORED the connected:false flag and UNCONDITIONALLY called linkAccount.mutateAsync()
+  * This marked Google as "linked" in the DB even though there was no actual Google OAuth session
+  * Then detected.length === 0 → showed "No subscriptions detected" (misleading)
+- Root cause #2: Outlook and Apple scan routes returned FAKE demo data (Microsoft 365, LinkedIn Premium, iCloud+, Apple Music, etc.) with connected:false — lying to users about detected subscriptions
+- Fixes applied:
+  1. handleInboxSync() now checks result.connected FIRST — only links account if scan actually succeeded
+  2. Shows clear toast error when connected:false with the backend's error message
+  3. When 0 subscriptions found, suggests using "Paste email" as fallback
+  4. New endpoint: GET /api/scan/gmail/status — checks if user has active Google OAuth session (access token)
+  5. New hook: checkGmailConnection() — frontend calls status endpoint on Email tab mount
+  6. Email tab now shows amber warning banner for email-users: "Gmail sync needs Google sign-in"
+  7. Gmail button is DISABLED (greyed out) for email-users — prevents the frustrating click
+  8. Outlook route: removed fake Microsoft 365/LinkedIn/Xbox data, returns connected:false honestly
+  9. Apple route: removed fake iCloud+/Apple Music/Apple TV+ data, returns connected:false honestly
+  10. scanInbox return type updated to include error/message fields
+- Verified with Agent Browser (iPhone 14, email-user session):
+  * Gmail button shows as disabled ✓
+  * Amber warning banner visible: "Gmail sync needs Google sign-in — You signed in with email..." ✓
+  * VLM confirmed the warning text is clearly displayed ✓
+  * API returns connected:false for email-users ✓
+  * No more fake "account linked" state ✓
+- Lint clean, no dev server errors
+
+Stage Summary:
+- Email/OTP users now get a CLEAR, honest message: "Sign in with Google to use Gmail sync"
+- Gmail button is disabled for email-users (no more frustrating clicks that lead nowhere)
+- "Paste email" is suggested as the manual fallback (works for everyone)
+- Outlook and Apple buttons no longer fabricate fake subscriptions — they honestly say "not available yet"
+- Real Google OAuth users still get full Gmail scanning (unchanged)
