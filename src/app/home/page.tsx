@@ -1,13 +1,19 @@
 import Link from "next/link";
-import { SavvyMascot } from "@/components/savvy-mascot";
+import type { Metadata } from "next";
 import {
   Sparkles, Mail, Shield, TrendingDown, Gift, Brain, ArrowRight,
 } from "lucide-react";
 
 // Server-rendered public landing page for Google OAuth verification.
-// This page has NO client-side logic, NO auth checks, NO localStorage.
-// It always renders the full app info in the initial HTML so Google's
-// crawlers and reviewers see the content immediately.
+// NO client components, NO auth checks, NO localStorage.
+// All content is in the initial HTML so Google's crawlers see it immediately.
+
+export const metadata: Metadata = {
+  title: "SubTrack AI — AI-Powered Subscription Tracker",
+  description:
+    "SubTrack AI is an AI-powered subscription tracker that helps you monitor recurring payments, detect subscriptions from Gmail, get AI savings insights, and earn rewards. Track subscriptions, earn rewards, and save money automatically.",
+};
+
 export default function HomePage() {
   return (
     <div className="min-h-screen bg-background">
@@ -20,17 +26,23 @@ export default function HomePage() {
         </div>
 
         <div className="relative z-10 max-w-2xl mx-auto px-6 py-12 text-center">
+          {/* App logo as plain text (not a client component) */}
           <div className="mb-3 flex justify-center">
-            <SavvyMascot size={80} variant="happy" />
+            <div className="h-20 w-20 rounded-2xl bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center text-white text-4xl font-bold shadow-lg">
+              S
+            </div>
           </div>
 
+          {/* App name as plain text — Google can match this exactly */}
           <h1 className="text-3xl font-bold tracking-tight mb-2">
-            SubTrack <span className="text-primary">AI</span>
+            SubTrack AI
           </h1>
 
           <p className="text-muted-foreground text-sm leading-relaxed max-w-md mx-auto mb-6">
-            Meet <span className="font-semibold text-primary">Savvy</span> — your AI-powered subscription tracker.
-            Track subscriptions, earn rewards, and save money automatically.
+            SubTrack AI is an AI-powered subscription tracker. Track subscriptions,
+            earn rewards, and save money automatically. Monitor recurring payments,
+            detect subscriptions from your Gmail inbox, get AI-powered savings insights,
+            and earn rewards by canceling unused services.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-2 justify-center">
@@ -50,6 +62,9 @@ export default function HomePage() {
 
       {/* Features section */}
       <main className="max-w-2xl mx-auto px-6 pb-12">
+        <h2 className="text-lg font-semibold text-center mb-4">
+          What SubTrack AI does
+        </h2>
         <div className="grid gap-3 sm:grid-cols-2">
           <FeatureCard
             icon={<TrendingDown className="h-5 w-5 text-primary" />}
@@ -85,7 +100,7 @@ export default function HomePage() {
 
         {/* How it works */}
         <section className="mt-8">
-          <h2 className="text-lg font-semibold text-center mb-4">How it works</h2>
+          <h2 className="text-lg font-semibold text-center mb-4">How SubTrack AI works</h2>
           <div className="space-y-3">
             <Step
               num={1}
@@ -131,7 +146,9 @@ export default function HomePage() {
       <footer className="border-t border-border py-6 px-6">
         <div className="max-w-2xl mx-auto text-center">
           <div className="flex items-center justify-center gap-1.5 mb-2">
-            <SavvyMascot size={28} variant="happy" />
+            <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center text-white text-sm font-bold">
+              S
+            </div>
             <span className="font-bold text-sm">SubTrack AI</span>
           </div>
           <div className="flex items-center justify-center gap-4 text-[11px] text-muted-foreground">
