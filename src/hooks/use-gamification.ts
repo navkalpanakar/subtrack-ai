@@ -69,8 +69,7 @@ export type RewardTier = {
 export type LinkedAccounts = {
   linked: Array<{ provider: string; identifier: string }>;
   google: boolean;
-  microsoft: boolean;
-  apple: boolean;
+  googleEmail?: string | null;
   email: boolean;
   phone: boolean;
 };
@@ -136,6 +135,17 @@ export function useLinkAccount() {
   return useMutation({
     mutationFn: ({ provider, identifier }: { provider: string; identifier?: string }) =>
       api("/api/account/link", { method: "POST", body: JSON.stringify({ provider, identifier }) }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["linked-accounts"] });
+    },
+  });
+}
+
+export function useUnlinkAccount() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (provider: string) =>
+      api(`/api/account/link?provider=${encodeURIComponent(provider)}`, { method: "DELETE" }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["linked-accounts"] });
     },

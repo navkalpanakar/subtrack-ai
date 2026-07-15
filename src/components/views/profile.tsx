@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { signIn } from "next-auth/react";
 import { motion } from "framer-motion";
 import {
-  User, Mail, Phone, LogOut, Check, Loader2, Link2, Share2, Copy, Gift,
+  User, Mail, Phone, LogOut, Check, Loader2, Link2, Link2Off, Share2, Copy, Gift,
   Trash2, AlertTriangle, Globe, Sparkles,
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
-import { useLinkedAccounts, useReferralStatus, useShareReferral } from "@/hooks/use-gamification";
+import { useLinkedAccounts, useUnlinkAccount, useReferralStatus, useShareReferral } from "@/hooks/use-gamification";
 import { useCurrencyStore, COUNTRIES, countryByCode, countryByCurrency } from "@/hooks/use-currency-store";
 import { SavvyMascot } from "@/components/savvy-mascot";
 import { Button } from "@/components/ui/button";
@@ -39,6 +40,7 @@ type Profile = {
 export function ProfileView() {
   const { user, signOut } = useAuth();
   const { data: linked } = useLinkedAccounts();
+  const unlinkAccount = useUnlinkAccount();
   const { data: referral } = useReferralStatus();
   const shareReferral = useShareReferral();
   const { currency, countryCode, setCurrency: setGlobalCurrency } = useCurrencyStore();
@@ -551,34 +553,101 @@ export function ProfileView() {
           Linked accounts
         </h3>
         <div className="space-y-2">
-          {[
-            { key: "google", label: "Google", color: "#EA4335" },
-            { key: "email", label: "Email", color: "#10b981" },
-            { key: "phone", label: "Phone", color: "#f59e0b" },
-          ].map((p) => {
-            const isLinked = linked?.[p.key as keyof typeof linked] as boolean;
-            const account = profile.linkedAccounts.find((a) => a.provider === p.key);
-            return (
-              <div key={p.key} className="flex items-center gap-3">
-                <div className="h-7 w-7 rounded-lg flex items-center justify-center text-white text-[10px] font-bold" style={{ backgroundColor: p.color }}>
-                  {p.label[0]}
-                </div>
-                <div className="flex-1">
-                  <p className="text-xs font-medium">{p.label}</p>
-                  <p className="text-[10px] text-muted-foreground truncate">
-                    {account?.identifier || "Not connected"}
-                  </p>
-                </div>
-                {isLinked ? (
-                  <span className="text-[10px] text-primary font-semibold flex items-center gap-0.5">
-                    <Check className="h-3 w-3" /> Linked
-                  </span>
-                ) : (
-                  <span className="text-[10px] text-muted-foreground">—</span>
-                )}
-              </div>
-            );
-          })}
+          {/* Google — Link/Unlink button */}
+          <div className="flex items-center gap-3">
+            <div className="h-7 w-7 rounded-lg flex items-center justify-center text-white text-[10px] font-bold" style={{ backgroundColor: "#EA4335" }}>
+              G
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-medium">Google</p>
+              <p className="text-[10px] text-muted-foreground truncate">
+                {linked?.google
+                  ? (linked?.googleEmail || "Connected")
+                  : "Not connected"}
+              </p>
+            </div>
+            {linked?.google ? (
+              <button
+                onClick={() => {
+                  if (confirm("Unlink Google? You'll need to sign in with Google again to use Gmail inbox sync.")) {
+                    unlinkAccount.mutate("google", {
+                      onSuccess: () => toast.success("Google account unlinked"),
+                      onError: (e: Error) => toast.error(e.message),
+                    });
+                  }
+                }}
+                disabled={unlinkAccount.isPending}
+                className="text-[10px] text-destructive font-semibold flex items-center gap-1 px-2 py-1 rounded-md hover:bg-destructive/10 transition"
+              >
+                {unlinkAccount.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Link2Off className="h-3 w-3" />}
+                Unlink
+              </button>
+            ) : (
+              <button
+                onClick={() => {
+                  toast.info("Redirecting to Google sign-in…");
+                  signIn("google", { callbackUrl: "/", redirect: true });
+                }}
+                className="text-[10px] text-primary font-semibold flex items-center gap-1 px-2 py-1 rounded-md hover:bg-primary/10 transition"
+              >
+                <Link2 className="h-3 w-3" />
+                Connect
+              </button>
+            )}
+          </div>
+
+          {/* Email — always linked (primary login), no button */}
+          <div className="flex items-center gap-3">
+            <div className="h-7 w-7 rounded-lg flex items-center justify-center text-white text-[10px] font-bold" style={{ backgroundColor: "#10b981" }}>
+              E
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-medium">Email</p>
+              <p className="text-[10px] text-muted-foreground truncate">
+                {profile.email || "Not connected"}
+              </p>
+            </div>
+            {linked?.email && (
+              <span className="text-[10px] text-primary font-semibold flex items-center gap-0.5">
+                <Check className="h-3 w-3" /> Active
+              </span>
+            )}
+          </div>
+
+          {/* Phone — Link/Unlink button */}
+          <div className="flex items-center gap-3">
+            <div className="h-7 w-7 rounded-lg flex items-center justify-center text-white text-[10px] font-bold" style={{ backgroundColor: "#f59e0b" }}>
+              P
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-medium">Phone</p>
+              <p className="text-[10px] text-muted-foreground truncate">
+                {profile.phone || "Not connected"}
+              </p>
+            </div>
+            {linked?.phone ? (
+              <button
+                onClick={() => {
+                  if (confirm("Unlink your phone number?")) {
+                    unlinkAccount.mutate("phone", {
+                      onSuccess: () => {
+                        toast.success("Phone number unlinked");
+                        // Profile auto-refreshes because `linked` is a useEffect dependency
+                      },
+                      onError: (e: Error) => toast.error(e.message),
+                    });
+                  }
+                }}
+                disabled={unlinkAccount.isPending}
+                className="text-[10px] text-destructive font-semibold flex items-center gap-1 px-2 py-1 rounded-md hover:bg-destructive/10 transition"
+              >
+                {unlinkAccount.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Link2Off className="h-3 w-3" />}
+                Unlink
+              </button>
+            ) : (
+              <span className="text-[10px] text-muted-foreground">—</span>
+            )}
+          </div>
         </div>
       </div>
 
