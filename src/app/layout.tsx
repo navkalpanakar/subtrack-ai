@@ -35,8 +35,8 @@ export const metadata: Metadata = {
     title: "SubTrack AI",
   },
   icons: {
-    icon: "/icons/icon-192.svg",
-    apple: "/icons/icon-192.svg",
+    icon: "/icons/icon-192.png",
+    apple: "/icons/icon-192.png",
   },
   openGraph: {
     title: "SubTrack AI — Outsmart Your Subscriptions",
