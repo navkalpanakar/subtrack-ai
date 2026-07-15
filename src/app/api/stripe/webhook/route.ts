@@ -4,20 +4,28 @@ import Stripe from "stripe";
 
 // Stripe webhook — handles subscription created/updated/deleted events.
 // Set this URL in Stripe Dashboard → Webhooks.
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
-  apiVersion: "2025-06-30.basil" as Stripe.LatestApiVersion,
-});
+// Lazy-init so the build doesn't fail when STRIPE_SECRET_KEY is missing.
+let stripeInstance: Stripe | null = null;
+function getStripe(): Stripe {
+  if (!stripeInstance) {
+    stripeInstance = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
+      apiVersion: "2025-06-30.basil" as Stripe.LatestApiVersion,
+    });
+  }
+  return stripeInstance;
+}
 
 const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || "";
 
 export async function POST(req: NextRequest) {
-  if (!WEBHOOK_SECRET) {
+  if (!WEBHOOK_SECRET || !process.env.STRIPE_SECRET_KEY) {
     return NextResponse.json({ error: "Webhook not configured" }, { status: 503 });
   }
 
   const body = await req.text();
   const signature = req.headers.get("stripe-signature") || "";
 
+  const stripe = getStripe();
   let event: Stripe.Event;
   try {
     event = stripe.webhooks.constructEvent(body, signature, WEBHOOK_SECRET);

@@ -5,9 +5,16 @@ import Stripe from "stripe";
 
 // Create a Stripe Checkout session for upgrading to Premium.
 // Premium: unlimited subscriptions, live price insights, advanced offers.
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
-  apiVersion: "2025-06-30.basil" as Stripe.LatestApiVersion,
-});
+// Lazy-init so the build doesn't fail when STRIPE_SECRET_KEY is missing.
+let stripeInstance: Stripe | null = null;
+function getStripe(): Stripe {
+  if (!stripeInstance) {
+    stripeInstance = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
+      apiVersion: "2025-06-30.basil" as Stripe.LatestApiVersion,
+    });
+  }
+  return stripeInstance;
+}
 
 const PREMIUM_PRICE_ID = process.env.STRIPE_PREMIUM_PRICE_ID || "";
 
@@ -18,6 +25,8 @@ export async function POST(req: NextRequest) {
   if (!process.env.STRIPE_SECRET_KEY) {
     return NextResponse.json({ error: "Stripe not configured" }, { status: 503 });
   }
+
+  const stripe = getStripe();
 
   const user = await db.user.findUnique({ where: { id: userId } });
   if (!user) return NextResponse.json({ error: "Not found" }, { status: 404 });
