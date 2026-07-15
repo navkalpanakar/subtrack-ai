@@ -5,9 +5,8 @@ import { useAuth } from "./use-auth";
 import { useCurrencyStore } from "./use-currency-store";
 
 // Currency detection priority:
-// 1. Server-side IP geolocation (most reliable — reads real client IP from
-//    Cloudflare/Nginx headers and calls ipwho.is)
-// 2. User's saved currency preference (from DB)
+// 1. User's saved currency preference (from DB — instant for returning users)
+// 2. Server-side IP geolocation (most reliable — reads real client IP)
 // 3. Browser geolocation (requires permission — often denied)
 // 4. Browser locale (last resort)
 
@@ -20,28 +19,22 @@ export function useGeolocation() {
 
     let cancelled = false;
 
-    // Step 0: Load the user's saved currency from the DB (for returning users)
-    const loadSavedCurrency = async () => {
+    const runDetection = async () => {
+      // Step 0: Load the user's saved currency from the DB (for returning users)
       try {
         const res = await fetch("/api/account/location", {
           headers: { "Content-Type": "application/json" },
         });
         const data = await res.json();
         if (cancelled) return;
-        // If the user has a saved currency, use it immediately
         if (data.currency && data.currency.length === 3) {
           setCurrency(data.currency, data.countryCode || null);
         }
       } catch {
         // not critical — continue with detection
       }
-    };
 
-    // First load saved currency, THEN run live detection (which may override)
-    await loadSavedCurrency();
-
-    // Step 1: Try the server-side IP geolocation (most reliable)
-    const detectFromServer = async () => {
+      // Step 1: Server-side IP geolocation (reads real client IP from headers)
       try {
         const res = await fetch("/api/account/detect-location", {
           headers: { "Content-Type": "application/json" },
@@ -60,7 +53,6 @@ export function useGeolocation() {
             if (Array.isArray(subs) && subs.length > 0) {
               const subCurrency = subs[0]?.currency;
               if (subCurrency && subCurrency !== data.currency) {
-                // User has subscriptions in a different currency — respect that
                 setCurrency(subCurrency, data.countryCode);
                 return;
               }
@@ -69,12 +61,11 @@ export function useGeolocation() {
             // If we can't check subscriptions, use the detected currency
           }
 
-          // Use the server-detected currency
           setCurrency(data.currency, data.countryCode);
           return;
         }
       } catch {
-        // Server-side detection failed — fall through to client-side
+        // Server-side detection failed — fall through to browser geolocation
       }
 
       // Step 2: Fallback to browser geolocation
@@ -109,7 +100,6 @@ export function useGeolocation() {
         const currency = COUNTRY_CURRENCY[countryCode] || "USD";
         setCurrency(currency, countryCode);
 
-        // Persist to the user's account
         await fetch("/api/account/location", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -125,8 +115,7 @@ export function useGeolocation() {
       }
     };
 
-    // Start with server-side detection
-    detectFromServer();
+    runDetection();
 
     return () => {
       cancelled = true;
