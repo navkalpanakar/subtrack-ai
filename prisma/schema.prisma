@@ -229,3 +229,40 @@ model Referral {
 
   @@index([referrerId])
 }
+
+// ─── Admin / CRM backend ───────────────────────────────────────────
+// Separate auth + permission system for the /admin panel. Admin tokens
+// are completely decoupled from the user token store (use `admin_token`
+// localStorage + `x-admin-token` header — never `subpilot_token`).
+
+model AdminUser {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  role         String   @default("admin") // superadmin | admin | viewer
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// Application-wide key/value settings (feature flags, defaults, etc.)
+// Stored as strings — callers cast as needed (boolean/number/json).
+model Setting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+// Per-call AI usage log for cost monitoring in the admin dashboard.
+model AiUsage {
+  id        String   @id @default(cuid())
+  userId    String?  // null = anonymous / system call
+  endpoint  String   // e.g. "parse", "insights", "scan-receipt", "offers"
+  model     String   // e.g. "glm-4-flash"
+  tokensIn  Int      @default(0)
+  tokensOut Int      @default(0)
+  costUsd   Float    @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([endpoint])
+}

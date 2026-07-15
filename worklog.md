@@ -922,3 +922,104 @@ Stage Summary:
 - "Paste email" is suggested as the manual fallback (works for everyone)
 - Outlook and Apple buttons no longer fabricate fake subscriptions — they honestly say "not available yet"
 - Real Google OAuth users still get full Gmail scanning (unchanged)
+
+---
+Task ID: 26
+Agent: full-stack-developer
+Task: Build a complete CRM/Admin backend panel for SubTrack AI (separate /admin route)
+
+Work Log:
+- Read worklog + existing schema + auth (session.ts, auth.ts, token-store.ts, root-gate.tsx) to understand the existing architecture. Confirmed single-route SPA pattern with token-based auth (`subpilot_token` localStorage + `x-subpilot-token` header) layered on top of NextAuth.
+- Installed bcryptjs (3.0.3) + @types/bcryptjs for admin password hashing.
+- Prisma schema additions (`prisma/schema.prisma`):
+  * `AdminUser` — id, email (unique), passwordHash, role (superadmin|admin|viewer), timestamps
+  * `Setting` — key/value table for app-wide feature flags + defaults
+  * `AiUsage` — per-call log (userId, endpoint, model, tokensIn/Out, costUsd, createdAt) for the AI cost tile on the dashboard
+  * Ran `bun run db:push` — schema synced, Prisma Client regenerated.
+- Created `src/lib/admin-session.ts` — COMPLETELY separate auth namespace from user auth:
+  * `signAdminToken` / `issueAdminTokenSync` / `verifyAdminToken` / `revokeAdminToken`
+  * `getAdminId(req)` — checks `x-admin-token` header, re-validates admin still exists in DB
+  * `requireAdmin(req)` — returns admin or 401 NextResponse
+  * `requireAdminWrite(req)` — stricter: blocks `viewer` role from writes (403)
+  * `hashPassword` / `verifyPassword` — bcrypt wrappers
+  * `getSetting` / `getAllSettings` / `setSetting` / `setSettings` + `SETTING_DEFAULTS` (ai_enabled, gamification_enabled, gmail_scan_enabled, default_currency, freemium_sub_limit, maintenance_mode)
+  * In-memory token Map persisted across hot reloads via `globalThis`.
+- Created `scripts/create-admin.ts` — bootstrap script that reads `ADMIN_BOOTSTRAP_EMAIL` + `ADMIN_BOOTSTRAP_PASSWORD` (+ optional `ADMIN_BOOTSTRAP_ROLE`) env vars. Idempotent (updates password if admin already exists). Run with: `bun run scripts/create-admin.ts`.
+- Created `src/lib/ai-usage.ts` — `logAiUsage()` helper for future AI route handlers to log calls to the AiUsage table (with static per-model pricing). Currently the dashboard shows 0 calls since no AI routes have been wired to log yet; logging will populate automatically once wired.
+- Admin API routes (`src/app/api/admin/`):
+  * `POST /api/admin/auth/login` — email+password → token + admin object
+  * `GET  /api/admin/auth/me` — validates token, returns admin
+  * `POST /api/admin/auth/logout` — revokes token
+  * `GET  /api/admin/metrics` — dashboard stats: users (total/newToday/newThisWeek/active7d/churned30d/byCountryTop5), revenue (MRR+ARR by currency + USD equiv, avgSpendPerUserUsd, top 10 providers, cancellationRate), AI (totalCalls, calls7d, totalCostUsd, cost7dUsd, byEndpoint), gamification (totalPointsDistributed, spinsToday, leaderboardSize). Uses static FX table to convert any currency → USD.
+  * `GET  /api/admin/users` — paginated + searchable user list (filter by plan, sort by newest/oldest/points/spend). Each row includes active sub count + monthly USD spend.
+  * `GET  /api/admin/users/[id]` — full detail: progress, subscriptions, badges, linked accounts, redeemed rewards, referrals, recent spins (fetched separately because SpinResult has no User back-relation).
+  * `PATCH /api/admin/users/[id]` — edit name/email/plan/currency/country/occupation/organization + pointsSet (absolute) or pointsDelta.
+  * `DELETE /api/admin/users/[id]` — cascades via Prisma relations.
+  * `GET  /api/admin/subscriptions` — cross-user list with filters (provider, category, currency, status, q) + sort + pagination. Returns facets (top providers/categories/currencies/statuses) for sidebar.
+  * `GET/POST /api/admin/rewards`, `PATCH/DELETE /api/admin/rewards/[id]` — full CRUD.
+  * `GET/POST /api/admin/challenges`, `PATCH/DELETE /api/admin/challenges/[id]` — full CRUD.
+  * `GET /api/admin/badges`, `PATCH /api/admin/badges/[id]` — badges are seeded so no create/delete; can edit title/detail/icon.
+  * `GET/PATCH /api/admin/settings` — read/write settings (booleans coerced to "true"/"false" strings).
+  * `GET  /api/admin/automations` — high-spend users (top 10 by monthly USD), inactive users (30+ days no activity, capped 50), churn risk (zero-sub users + recent cancellations in last 7 days), recent signups (24h).
+- Admin UI — separate `/admin` Next.js route (NOT part of RootGate):
+  * `src/hooks/use-admin-auth.tsx` — `AdminProvider` context + `useAdminAuth()` hook + `adminFetch()` helper that auto-attaches `x-admin-token` from `admin_token` localStorage. Validates existing token on mount.
+  * `src/app/admin/layout.tsx` — desktop-first layout with sidebar (Dashboard, Users, Subscriptions, Content, Settings, Automations), top bar with admin email + role + Logout, mobile drawer nav, "Open user app" external link. Uses emerald/teal theme (sidebar-foreground etc.). Wraps children in `AdminProvider` → `AdminShell`. Shows `<AdminLogin />` when no admin token.
+  * `src/components/admin/admin-login.tsx` — login card with email/password, error toast, link to `create-admin.ts` instructions.
+  * `src/app/admin/page.tsx` (Dashboard) — 5 user stat cards, 4 revenue stat cards, MRR-by-currency badges, top 10 providers progress bars, AI usage tiles + per-endpoint table, gamification tiles, top 5 countries bar chart.
+  * `src/app/admin/users/page.tsx` — searchable/filterable/sortable table (25/page), detail Sheet with edit form (name, plan, currency, country, points), stats cards (points/level/streak/totalSaved), subscriptions list, badges, linked accounts, delete-confirm AlertDialog.
+  * `src/app/admin/subscriptions/page.tsx` — 4 facet cards (statuses/currencies/top providers), 5-filter bar (q, provider, category, currency, status) + sort, paginated table.
+  * `src/app/admin/content/page.tsx` — Tabs (Rewards/Challenges/Badges), each with card grid, create dialog, edit dialog, delete confirm. Viewer role sees read-only.
+  * `src/app/admin/settings/page.tsx` — 4 feature-flag toggles (AI, gamification, Gmail scan, maintenance mode), default-currency select, freemium-sub-limit input, raw settings table. Save button writes via PATCH.
+  * `src/app/admin/automations/page.tsx` — 5 summary tiles (high-spend/inactive/churn-risk/new-24h/generated-at), high-spend table, recent-cancellations table, inactive-users table, recent-signups table.
+- Bootstrapped first admin: `ADMIN_BOOTSTRAP_EMAIL="admin@subtrack.ai" ADMIN_BOOTSTRAP_PASSWORD="admin123456" bun run scripts/create-admin.ts` (role=superadmin).
+- Lint clean (`bun run lint` → 0 errors, 0 warnings). Fixed all `react-hooks/set-state-in-effect` errors and unused `@typescript-eslint/no-explicit-any` disable directives by switching to proper `Prisma.*WhereInput` / `Prisma.*UpdateInput` / `Prisma.*OrderByWithRelationInput` types.
+
+Verification (Agent Browser, 1440x900 desktop):
+- `/admin` loads → login screen with SubTrack CRM branding ✓
+- Login as admin@subtrack.ai / admin123456 → Dashboard with USERS/REVENUE/AI USAGE/GAMIFICATION sections + sidebar nav ✓
+- Dashboard shows live data: 1 total user, 1 new this week, 1 active 7d, 0 churned, MRR $39.80 USD (from ₹3,316/mo INR subs), 8 active subs, top 8 providers list ✓
+- Users page → table with 1 user (Guest User, guest-inr@subtrack.ai, Free, 8 active subs, $39.80/mo, 25 pts, joined 7/13/2026) ✓
+- Click eye icon → detail Sheet opens with edit form (Name=Guest User, Plan=Free, Currency=USD, Country=United States, Points=25) + Subscriptions (8) + Badges (1) + Linked accounts (1) sections ✓
+- Subscriptions page → 5-filter bar (provider/category/currency/status/sort) + 4 facet cards + table with ChatGPT Plus/OpenAI/AI/INR 195/monthly/active ✓
+- Content page → 3 tabs (Rewards/Challenges/Badges), Rewards tab shows 4+ existing rewards with Edit buttons, "New reward" button ✓
+- Settings page → 4 toggles (AI on, gamification on, Gmail on, maintenance off) + Default currency (USD) + Freemium sub limit (3) + Save changes button + Raw settings table ✓
+- Automations page → 5 summary tiles + high-spend users table (1 user, $39.80/mo) ✓
+- Console: clean, only HMR logs ✓
+- Errors: none ✓
+
+Token separation verified:
+- `/api/subscriptions` with only `x-admin-token` header → 401 (admin tokens don't grant user access) ✓
+- `/api/admin/metrics` with no admin token → 401 (admin endpoints require admin token) ✓
+- User app at `/` still returns 200 (no regression) ✓
+- User app `/api/auth/me` still returns 200 (no regression) ✓
+
+PATCH/PUT end-to-end tests (via curl):
+- `PATCH /api/admin/users/{id}` with `{plan:"premium", pointsSet:500, name:"..."}` → 200, name/plan/points all persisted ✓
+- `PATCH /api/admin/settings` with `{settings:{freemium_sub_limit:"5"}}` → 200, freemium_sub_limit now "5" ✓
+- (Reverted both back to original values after testing.)
+
+Stage Summary:
+- Complete CRM/admin panel at `/admin` — SEPARATE route from the user app (`/`).
+- Admin auth is completely decoupled from user auth: `admin_token` localStorage + `x-admin-token` header + `AdminUser` table + bcrypt password hashing + JWT-like opaque token (in-memory, 7-day TTL).
+- First admin created via `bun run scripts/create-admin.ts` with `ADMIN_BOOTSTRAP_EMAIL` + `ADMIN_BOOTSTRAP_PASSWORD` env vars.
+- Dashboard shows live metrics (users/revenue/AI/gamification/geographic), Users page has search+filter+sort+detail sheet+edit+delete, Subscriptions page has 5 filters + facets, Content page is full CRUD on rewards/challenges/badges, Settings page toggles 4 feature flags + 2 defaults, Automations page shows high-spend/inactive/churn-risk/new-signup alerts.
+- Viewer role is read-only (cannot edit/delete/create); admin + superadmin can do everything.
+- Token separation verified: admin tokens can't access user endpoints and vice versa.
+- Lint clean. No regressions to the user app.
+- Deliverables:
+  * Updated `prisma/schema.prisma` (AdminUser, Setting, AiUsage models)
+  * `src/lib/admin-session.ts` (admin auth helpers + settings helpers)
+  * `src/lib/ai-usage.ts` (AI call logging helper for future use)
+  * `src/hooks/use-admin-auth.tsx` (admin auth context + adminFetch)
+  * `src/components/admin/admin-login.tsx`
+  * `src/app/admin/layout.tsx` + `page.tsx` (dashboard) + `users/page.tsx` + `subscriptions/page.tsx` + `content/page.tsx` + `settings/page.tsx` + `automations/page.tsx`
+  * `src/app/api/admin/auth/{login,me,logout}/route.ts`
+  * `src/app/api/admin/metrics/route.ts`
+  * `src/app/api/admin/users/route.ts` + `[id]/route.ts`
+  * `src/app/api/admin/subscriptions/route.ts`
+  * `src/app/api/admin/rewards/route.ts` + `[id]/route.ts`
+  * `src/app/api/admin/challenges/route.ts` + `[id]/route.ts`
+  * `src/app/api/admin/badges/route.ts` + `[id]/route.ts`
+  * `src/app/api/admin/settings/route.ts`
+  * `src/app/api/admin/automations/route.ts`
+  * `scripts/create-admin.ts` (bootstrap script)
