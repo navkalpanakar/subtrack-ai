@@ -34,6 +34,7 @@ export function LoginScreen() {
   const [name, setName] = useState("");
   const [otp, setOtp] = useState("");
   const [devOtp, setDevOtp] = useState<string | null>(null);
+  const [userExists, setUserExists] = useState<boolean>(false);
 
   // OAuth handler — uses NextAuth's signIn with redirect: false so we can
   // handle the result client-side. If there's an existing NextAuth session
@@ -91,6 +92,8 @@ export function LoginScreen() {
         toast.error(res.error);
         return;
       }
+      // Track whether the user already has an account (for button text)
+      setUserExists(res.exists === true);
       if (res.devOtp) {
         // Preview mode — no real email was sent, show the code for testing
         setDevOtp(res.devOtp);
@@ -250,10 +253,10 @@ export function LoginScreen() {
                   className="w-full h-11"
                 >
                   {loading === "email-send" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4 mr-2" />}
-                  Send verification code
+                  Send sign-in code
                 </Button>
                 <p className="text-[10px] text-muted-foreground text-center">
-                  We'll send a 4-digit code to verify your email before creating your account.
+                  We'll send a 4-digit code to your email to sign you in.
                 </p>
               </motion.div>
             )}
@@ -268,7 +271,8 @@ export function LoginScreen() {
               >
                 <BackButton onClick={() => setMode("email")} />
                 <div className="flex items-center gap-2 text-sm font-medium">
-                  <MessageSquare className="h-4 w-4 text-primary" /> Verify your email
+                  <MessageSquare className="h-4 w-4 text-primary" />
+                  {userExists ? "Sign in" : "Verify your email"}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Enter the code sent to <span className="font-medium text-foreground">{email}</span>
@@ -294,7 +298,7 @@ export function LoginScreen() {
                   className="w-full h-11"
                 >
                   {loading === "email-verify" ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                  Verify & create account
+                  {userExists ? "Sign in" : "Verify & create account"}
                 </Button>
                 <button
                   onClick={handleEmailSend}

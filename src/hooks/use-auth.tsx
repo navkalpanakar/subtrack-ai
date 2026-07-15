@@ -29,7 +29,7 @@ type AuthState = {
   user: SessionUser | null;
   loading: boolean;
   signInDemo: () => Promise<void>;
-  sendEmailOtp: (email: string) => Promise<{ sent: boolean; devOtp?: string; error?: string }>;
+  sendEmailOtp: (email: string) => Promise<{ sent: boolean; devOtp?: string; error?: string; exists?: boolean }>;
   verifyEmailOtp: (email: string, otp: string, name?: string) => Promise<{ token?: string; error?: string }>;
   signOut: () => Promise<void>;
 };
@@ -141,7 +141,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email }),
     });
-    const data: { sent: boolean; devOtp?: string; error?: string } = await res.json();
+    const data: { sent: boolean; devOtp?: string; error?: string; exists?: boolean } = await res.json();
     return data;
   }, []);
 
