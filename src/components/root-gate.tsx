@@ -10,14 +10,38 @@ import { AppShell } from "./app-shell";
 const MIN_SPLASH_MS = 2000;
 const LANDING_SEEN_KEY = "subtrack_landing_seen";
 
+// Detect if the app is running in "standalone" mode — meaning it was
+// installed as a PWA or launched as a TWA (Android app from Play Store).
+// In standalone mode, the app has no browser address bar, so users
+// already know what app they opened (they installed it deliberately).
+function isStandaloneApp(): boolean {
+  if (typeof window === "undefined") return false;
+  // PWA installed (Add to Home Screen) or TWA (Play Store)
+  const standalone =
+    window.matchMedia("(display-mode: standalone)").matches ||
+    // iOS Safari standalone
+    (window.navigator as { standalone?: boolean }).standalone === true;
+  // TWA from Play Store sends an android-app:// referrer
+  const isTwa =
+    typeof document !== "undefined" &&
+    document.referrer.startsWith("android-app://");
+  return standalone || isTwa;
+}
+
 export function RootGate() {
   const { user, loading } = useAuth();
   const [splashDone, setSplashDone] = useState(false);
 
-  // Determine initial view based on whether the user has seen the landing page before.
-  // First-time visitors → landing page. Returning visitors → login screen directly.
+  // Determine initial view:
+  // - App users (PWA/TWA from Play Store) → login screen directly (they know the app)
+  // - First-time web visitors → landing page (need context about the app)
+  // - Returning web visitors → login screen (landing page already seen)
+  // - Google reviewers (fresh browser) → landing page (for verification)
   const [view, setView] = useState<"loading" | "landing" | "login">(() => {
     if (typeof window === "undefined") return "loading";
+    // App users skip the landing page entirely
+    if (isStandaloneApp()) return "login";
+    // Web visitors: show landing page only on first visit
     const hasSeenLanding = localStorage.getItem(LANDING_SEEN_KEY) === "true";
     return hasSeenLanding ? "login" : "landing";
   });
