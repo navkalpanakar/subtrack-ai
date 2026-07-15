@@ -124,20 +124,14 @@ export async function transcribeAudio(audio: string) {
   });
 }
 
-export async function scanInbox(provider: "gmail" | "outlook" | "apple") {
-  const url =
-    provider === "gmail"
-      ? "/api/scan/gmail"
-      : provider === "outlook"
-      ? "/api/scan/outlook"
-      : "/api/scan/apple";
+export async function scanInbox(provider: "gmail") {
   return api<{
     connected: boolean;
     scanSource?: string;
     error?: string;
     message?: string;
     detected: Array<Record<string, unknown>>;
-  }>(url);
+  }>("/api/scan/gmail");
 }
 
 // Checks whether the user has an active Google OAuth session (required for

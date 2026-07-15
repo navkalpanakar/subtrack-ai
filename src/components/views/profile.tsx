@@ -489,7 +489,7 @@ export function ProfileView() {
           <div className="space-y-1.5">
             <Label className="text-[10px] text-muted-foreground uppercase tracking-wide">Organization (optional)</Label>
             <Input
-              placeholder="e.g. Google, Microsoft"
+              placeholder="e.g. Google"
               value={organization}
               onChange={(e) => setOrganization(e.target.value)}
               className="h-9"
@@ -553,8 +553,6 @@ export function ProfileView() {
         <div className="space-y-2">
           {[
             { key: "google", label: "Google", color: "#EA4335" },
-            { key: "microsoft", label: "Microsoft", color: "#00A4EF" },
-            { key: "apple", label: "Apple", color: "#111111" },
             { key: "email", label: "Email", color: "#10b981" },
             { key: "phone", label: "Phone", color: "#f59e0b" },
           ].map((p) => {

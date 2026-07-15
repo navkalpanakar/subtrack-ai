@@ -324,12 +324,12 @@ export function QuickAddSheet({
     }
   };
 
-  const handleInboxSync = async (provider: "gmail" | "outlook" | "apple") => {
+  const handleInboxSync = async (provider: "gmail") => {
     setEmailParsing(true);
     try {
       const result = await scanInbox(provider);
-      const providerKey = provider === "gmail" ? "google" : provider === "outlook" ? "microsoft" : "apple";
-      const labels = { gmail: "Gmail", outlook: "Outlook", apple: "Apple Mail" };
+      const providerKey = "google";
+      const labels = { gmail: "Gmail" };
 
       // Not connected — show a clear, actionable message
       if (result.connected === false) {
@@ -651,7 +651,7 @@ export function QuickAddSheet({
                 )}
               </TabsContent>
 
-              {/* Email sync — Gmail / Outlook / Apple one-tap + paste */}
+              {/* Email sync — Gmail one-tap + paste */}
               <TabsContent value="email" className="mt-4 space-y-3">
                 <div className="rounded-xl bg-primary/10 border border-primary/20 p-3 flex items-start gap-2">
                   <MailCheck className="h-5 w-5 text-primary shrink-0 mt-0.5" />
@@ -680,28 +680,14 @@ export function QuickAddSheet({
                   </div>
                 )}
 
-                {/* Provider one-tap buttons */}
-                <div className="grid grid-cols-3 gap-2">
+                {/* Provider one-tap buttons — Gmail only (Outlook/Apple removed) */}
+                <div className="grid grid-cols-1 gap-2">
                   <InboxButton
                     label="Gmail"
                     color="#EA4335"
                     connected={gmailConnected === true}
                     onClick={() => handleInboxSync("gmail")}
                     disabled={emailParsing || gmailConnected === false}
-                  />
-                  <InboxButton
-                    label="Outlook"
-                    color="#00A4EF"
-                    connected={linkedAccounts?.microsoft}
-                    onClick={() => handleInboxSync("outlook")}
-                    disabled={emailParsing}
-                  />
-                  <InboxButton
-                    label="Apple"
-                    color="#111111"
-                    connected={linkedAccounts?.apple}
-                    onClick={() => handleInboxSync("apple")}
-                    disabled={emailParsing}
                   />
                 </div>
                 {emailParsing && (

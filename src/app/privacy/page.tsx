@@ -40,11 +40,9 @@ export default function PrivacyPage() {
             <h2 className="text-xl font-semibold mb-2">3. Third-Party Services</h2>
             <ul className="list-disc pl-5 space-y-1 text-sm text-muted-foreground">
               <li><strong>Google OAuth:</strong> For Google sign-in (we access your email and name only)</li>
-              <li><strong>Microsoft OAuth:</strong> For Microsoft sign-in (email and name only)</li>
-              <li><strong>Apple Sign In:</strong> For Apple sign-in (email and name only)</li>
               <li><strong>Resend:</strong> For sending verification codes and notifications via email</li>
               <li><strong>Stripe:</strong> For processing premium subscription payments</li>
-              <li><strong>AI Services (z-ai-web-dev-sdk):</strong> For natural language processing, receipt scanning, voice transcription, price verification, and insights generation</li>
+              <li><strong>AI Services (Z.ai):</strong> For natural language processing, receipt scanning, voice transcription, price verification, and insights generation</li>
               <li><strong>Web Search:</strong> For fetching live subscription prices and finding deals</li>
             </ul>
           </section>
