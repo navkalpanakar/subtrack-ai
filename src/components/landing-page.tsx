@@ -60,6 +60,14 @@ export function LandingPage({ onGetStarted }: { onGetStarted: () => void }) {
           <p className="text-[10px] text-muted-foreground mt-3">
             Free to use · No credit card required
           </p>
+
+          {/* Skip link for returning app users */}
+          <button
+            onClick={() => setShowLogin(true)}
+            className="text-[11px] text-muted-foreground hover:text-foreground mt-4 underline transition"
+          >
+            I already have an account · Sign in
+          </button>
         </div>
       </header>
 

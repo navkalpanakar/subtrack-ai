@@ -8,11 +8,19 @@ import { LandingPage } from "./landing-page";
 import { AppShell } from "./app-shell";
 
 const MIN_SPLASH_MS = 2000;
+const LANDING_SEEN_KEY = "subtrack_landing_seen";
 
 export function RootGate() {
   const { user, loading } = useAuth();
   const [splashDone, setSplashDone] = useState(false);
-  const [showLogin, setShowLogin] = useState(false);
+
+  // Determine initial view based on whether the user has seen the landing page before.
+  // First-time visitors → landing page. Returning visitors → login screen directly.
+  const [view, setView] = useState<"loading" | "landing" | "login">(() => {
+    if (typeof window === "undefined") return "loading";
+    const hasSeenLanding = localStorage.getItem(LANDING_SEEN_KEY) === "true";
+    return hasSeenLanding ? "login" : "landing";
+  });
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -33,7 +41,6 @@ export function RootGate() {
       const [name, value] = cookie.trim().split("=");
       if (name === "subpilot_token" && value) {
         localStorage.setItem("subpilot_token", value);
-        // Delete the cookie (it's now in localStorage)
         document.cookie = "subpilot_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
         window.location.reload();
         return;
@@ -45,15 +52,27 @@ export function RootGate() {
   }, []);
 
   // Show splash screen during initial load
-  if (loading || !splashDone) {
+  if (loading || !splashDone || view === "loading") {
     return <SplashScreen />;
   }
 
   // Logged-in users go straight to the app
   if (user) return <AppShell />;
 
-  // Logged-out visitors see the landing page first (public info for Google reviewers)
-  // Clicking "Get Started" shows the login screen
-  if (showLogin) return <LoginScreen />;
-  return <LandingPage onGetStarted={() => setShowLogin(true)} />;
+  // Logged-out visitors:
+  // - First visit → landing page (then "Get Started" → login)
+  // - Returning → login screen directly
+  if (view === "landing") {
+    return (
+      <LandingPage
+        onGetStarted={() => {
+          // Remember that the user has seen the landing page — skip it next time
+          localStorage.setItem(LANDING_SEEN_KEY, "true");
+          setView("login");
+        }}
+      />
+    );
+  }
+
+  return <LoginScreen />;
 }
