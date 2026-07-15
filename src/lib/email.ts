@@ -16,10 +16,18 @@
 
 import { Resend } from "resend";
 
-const apiKey = process.env.RESEND_API_KEY;
-const fromAddress = process.env.EMAIL_FROM || "SubTrack AI <onboarding@resend.dev>";
+// Read env vars at RUNTIME (not module-load time) so that updating .env
+// + restarting PM2 actually picks up the new values. In Next.js standalone
+// production builds, module-level constants are baked in at build time.
+function getResendClient(): Resend | null {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) return null;
+  return new Resend(apiKey);
+}
 
-const resend = apiKey ? new Resend(apiKey) : null;
+function getFromAddress(): string {
+  return process.env.EMAIL_FROM || "SubTrack AI <noreply@scanmymenu.in>";
+}
 
 export type SendEmailResult = {
   sent: boolean;
@@ -36,8 +44,12 @@ export async function sendOtpEmail(
   code: string,
   purpose: "login" | "change-email" | "delete-account" = "login"
 ): Promise<SendEmailResult> {
+  const resend = getResendClient();
+  const fromAddress = getFromAddress();
+
   // Preview mode — no API key configured
   if (!resend) {
+    console.log("[email] Preview mode: RESEND_API_KEY not set");
     return { sent: true, devOtp: code };
   }
 
@@ -79,6 +91,7 @@ export async function sendOtpEmail(
 `;
 
   try {
+    console.log("[email] Sending to:", to, "from:", fromAddress);
     const { error } = await resend.emails.send({
       from: fromAddress,
       to,
@@ -90,6 +103,7 @@ export async function sendOtpEmail(
       // Fall back to devOtp so the user isn't blocked
       return { sent: true, devOtp: code, error: error.message };
     }
+    console.log("[email] Sent successfully to:", to);
     return { sent: true };
   } catch (e) {
     console.error("[email] Send failed:", e);
