@@ -232,7 +232,7 @@ export function ProfileView() {
         toast.success("Account deleted");
         // sign out locally
         localStorage.removeItem("subpilot_token");
-        window.location.href = "/";
+        window.location.href = "/app";
       }
     } catch {
       toast.error("Could not delete account");
@@ -603,7 +603,7 @@ export function ProfileView() {
               <button
                 onClick={() => {
                   toast.info("Redirecting to Google sign-in…");
-                  signIn("google", { callbackUrl: "/", redirect: true });
+                  signIn("google", { callbackUrl: "/app", redirect: true });
                 }}
                 className="text-[10px] text-primary font-semibold flex items-center gap-1 px-2 py-1 rounded-md hover:bg-primary/10 transition"
               >

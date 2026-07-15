@@ -366,7 +366,7 @@ export function QuickAddSheet({
   // Connect Google — redirects to Google OAuth
   const handleConnectGmail = () => {
     toast.info("Redirecting to Google sign-in…");
-    signIn("google", { callbackUrl: "/", redirect: true });
+    signIn("google", { callbackUrl: "/app", redirect: true });
   };
 
   const handleInboxSync = async (provider: "gmail") => {

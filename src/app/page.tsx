@@ -1,35 +1,57 @@
-import { RootGate } from "@/components/root-gate";
 import Link from "next/link";
+import type { Metadata } from "next";
+import {
+  Sparkles, Mail, Shield, TrendingDown, Gift, Brain, ArrowRight,
+} from "lucide-react";
 
-// The root page renders the client-side app (RootGate) for real users,
-// but also includes server-rendered content for Google's crawlers:
-// 1. JSON-LD structured data (tells Google the app name + purpose)
-// 2. <noscript> block with full app info (Google processes this)
-// This ensures Google can verify the app name "SubTrack AI" and purpose
-// even though the main app is client-rendered.
+// ROOT PAGE — This is what Google's crawler sees at https://subtrack.scanmymenu.in
+// It is 100% server-rendered. NO client components, NO auth, NO splash screen.
+// The actual SubTrack AI app lives at /app (client-rendered).
+//
+// This ensures Google's verification bot sees:
+// - App name "SubTrack AI" in the H1 (matches OAuth consent screen)
+// - App purpose clearly explained
+// - No login wall
 
-const appInfo = {
-  name: "SubTrack AI",
+export const metadata: Metadata = {
+  title: "SubTrack AI — AI-Powered Subscription Tracker",
   description:
     "SubTrack AI is an AI-powered subscription tracker that helps you monitor recurring payments, detect subscriptions from Gmail, get AI savings insights, and earn rewards. Track subscriptions, earn rewards, and save money automatically.",
-  url: "https://subtrack.scanmymenu.in",
+  keywords: [
+    "SubTrack AI",
+    "subscription tracker",
+    "AI finance",
+    "save money",
+    "cancel subscriptions",
+    "renewal reminders",
+  ],
+  authors: [{ name: "SubTrack AI" }],
+  manifest: "/manifest.webmanifest",
+  openGraph: {
+    title: "SubTrack AI — AI-Powered Subscription Tracker",
+    description:
+      "SubTrack AI is an AI-powered subscription tracker. Track subscriptions, earn rewards, and save money automatically.",
+    type: "website",
+    url: "https://subtrack.scanmymenu.in",
+  },
 };
 
-export default function Page() {
+export default function HomePage() {
   return (
-    <>
-      {/* JSON-LD structured data — Google uses this to identify the app */}
+    <div className="min-h-screen bg-background">
+      {/* JSON-LD structured data for Google */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
           __html: JSON.stringify({
             "@context": "https://schema.org",
             "@type": "SoftwareApplication",
-            name: appInfo.name,
+            name: "SubTrack AI",
             applicationCategory: "FinanceApplication",
             operatingSystem: "Web, Android, iOS",
-            description: appInfo.description,
-            url: appInfo.url,
+            description:
+              "SubTrack AI is an AI-powered subscription tracker that helps you monitor recurring payments, detect subscriptions from Gmail, get AI savings insights, and earn rewards.",
+            url: "https://subtrack.scanmymenu.in",
             offers: {
               "@type": "Offer",
               price: "0",
@@ -37,52 +59,178 @@ export default function Page() {
             },
             publisher: {
               "@type": "Organization",
-              name: appInfo.name,
+              name: "SubTrack AI",
             },
           }),
         }}
       />
 
-      {/* Server-rendered content for crawlers (hidden from users with JS) */}
-      <noscript>
-        <div style={{ padding: "24px", maxWidth: "800px", margin: "0 auto", fontFamily: "system-ui, sans-serif" }}>
-          <h1>SubTrack AI</h1>
-          <p>
+      {/* Hero section */}
+      <header className="relative overflow-hidden">
+        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+          <div className="absolute -top-32 -left-20 h-72 w-72 rounded-full bg-primary/30 blur-3xl" />
+          <div className="absolute top-1/3 -right-24 h-80 w-80 rounded-full bg-amber-400/15 blur-3xl" />
+          <div className="absolute -bottom-24 left-1/4 h-72 w-72 rounded-full bg-primary/20 blur-3xl" />
+        </div>
+
+        <div className="relative z-10 max-w-2xl mx-auto px-6 py-12 text-center">
+          <div className="mb-3 flex justify-center">
+            <div className="h-20 w-20 rounded-2xl bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center text-white text-4xl font-bold shadow-lg">
+              S
+            </div>
+          </div>
+
+          <h1 className="text-3xl font-bold tracking-tight mb-2">
+            SubTrack AI
+          </h1>
+
+          <p className="text-muted-foreground text-sm leading-relaxed max-w-md mx-auto mb-6">
             SubTrack AI is an AI-powered subscription tracker that helps you monitor
             recurring payments, detect subscriptions from Gmail, get AI savings insights,
             and earn rewards. Track subscriptions, earn rewards, and save money automatically.
           </p>
 
-          <h2>What SubTrack AI does</h2>
-          <ul>
-            <li><strong>Track subscriptions</strong> — Monitor all your recurring payments in one dashboard. See monthly and yearly costs at a glance.</li>
-            <li><strong>AI insights</strong> — Get personalized savings tips powered by AI. Find cheaper plans, student discounts, and bundle deals.</li>
-            <li><strong>Gmail inbox scan</strong> — Connect your Google account to auto-detect subscriptions from billing emails — no manual entry.</li>
-            <li><strong>Earn rewards</strong> — Complete challenges, spin the daily wheel, and climb the weekly leaderboard to win prizes.</li>
-            <li><strong>Privacy first</strong> — Your data is encrypted and never sold. Delete your account anytime with one tap.</li>
-            <li><strong>Multi-currency</strong> — Automatic currency detection based on your location. Supports 40+ currencies worldwide.</li>
-          </ul>
+          <div className="flex flex-col sm:flex-row gap-2 justify-center">
+            <Link
+              href="/app"
+              className="inline-flex items-center justify-center h-12 px-6 rounded-xl bg-primary text-primary-foreground font-medium hover:opacity-90 transition"
+            >
+              Get Started <ArrowRight className="h-4 w-4 ml-2" />
+            </Link>
+          </div>
 
-          <h2>How SubTrack AI works</h2>
-          <ol>
-            <li><strong>Sign in with email or Google</strong> — Create a free account in seconds.</li>
-            <li><strong>Add your subscriptions</strong> — Type a description, scan a receipt, or sync your Gmail inbox.</li>
-            <li><strong>Get AI-powered savings tips</strong> — Savvy analyzes your subscriptions and suggests ways to save.</li>
-            <li><strong>Earn rewards &amp; save money</strong> — Cancel unused subscriptions, earn points, and climb the leaderboard.</li>
-          </ol>
-
-          <p>
-            <a href="/">Get started with SubTrack AI</a>
+          <p className="text-[10px] text-muted-foreground mt-3">
+            Free to use · No credit card required
           </p>
-          <p>
-            <a href="/privacy">Privacy Policy</a> | <a href="/terms">Terms of Service</a>
-          </p>
-          <p>© 2025 SubTrack AI · Outsmart your subscriptions</p>
         </div>
-      </noscript>
+      </header>
 
-      {/* Client-side app for real users */}
-      <RootGate />
-    </>
+      {/* Features section */}
+      <main className="max-w-2xl mx-auto px-6 pb-12">
+        <h2 className="text-lg font-semibold text-center mb-4">
+          What SubTrack AI does
+        </h2>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <FeatureCard
+            icon={<TrendingDown className="h-5 w-5 text-primary" />}
+            title="Track subscriptions"
+            description="Monitor all your recurring payments in one dashboard. See monthly and yearly costs at a glance."
+          />
+          <FeatureCard
+            icon={<Brain className="h-5 w-5 text-primary" />}
+            title="AI insights"
+            description="Get personalized savings tips powered by AI. Find cheaper plans, student discounts, and bundle deals."
+          />
+          <FeatureCard
+            icon={<Mail className="h-5 w-5 text-primary" />}
+            title="Gmail inbox scan"
+            description="Connect your Google account to auto-detect subscriptions from billing emails — no manual entry."
+          />
+          <FeatureCard
+            icon={<Gift className="h-5 w-5 text-primary" />}
+            title="Earn rewards"
+            description="Complete challenges, spin the daily wheel, and climb the weekly leaderboard to win prizes."
+          />
+          <FeatureCard
+            icon={<Shield className="h-5 w-5 text-primary" />}
+            title="Privacy first"
+            description="Your data is encrypted and never sold. Delete your account anytime with one tap."
+          />
+          <FeatureCard
+            icon={<Sparkles className="h-5 w-5 text-primary" />}
+            title="Multi-currency"
+            description="Automatic currency detection based on your location. Supports 40+ currencies worldwide."
+          />
+        </div>
+
+        {/* How it works */}
+        <section className="mt-8">
+          <h2 className="text-lg font-semibold text-center mb-4">How SubTrack AI works</h2>
+          <div className="space-y-3">
+            <Step
+              num={1}
+              title="Sign in with email or Google"
+              description="Create a free account in seconds. Use email verification or Google sign-in."
+            />
+            <Step
+              num={2}
+              title="Add your subscriptions"
+              description="Type a description, scan a receipt, or sync your Gmail inbox to auto-detect subscriptions."
+            />
+            <Step
+              num={3}
+              title="Get AI-powered savings tips"
+              description="Savvy analyzes your subscriptions and suggests ways to save — annual plans, student discounts, and more."
+            />
+            <Step
+              num={4}
+              title="Earn rewards & save money"
+              description="Cancel unused subscriptions, earn points, and climb the leaderboard to win free subscriptions."
+            />
+          </div>
+        </section>
+
+        {/* CTA */}
+        <div className="mt-8 text-center">
+          <Link
+            href="/app"
+            className="inline-flex items-center justify-center h-12 px-8 rounded-xl bg-primary text-primary-foreground font-medium hover:opacity-90 transition"
+          >
+            Start tracking for free <ArrowRight className="h-4 w-4 ml-2" />
+          </Link>
+          <p className="text-[10px] text-muted-foreground mt-3">
+            By continuing, you agree to our{" "}
+            <Link href="/privacy" className="underline hover:text-foreground">Privacy Policy</Link>{" "}
+            and{" "}
+            <Link href="/terms" className="underline hover:text-foreground">Terms of Service</Link>.
+          </p>
+        </div>
+      </main>
+
+      {/* Footer */}
+      <footer className="border-t border-border py-6 px-6">
+        <div className="max-w-2xl mx-auto text-center">
+          <div className="flex items-center justify-center gap-1.5 mb-2">
+            <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center text-white text-sm font-bold">
+              S
+            </div>
+            <span className="font-bold text-sm">SubTrack AI</span>
+          </div>
+          <div className="flex items-center justify-center gap-4 text-[11px] text-muted-foreground">
+            <Link href="/privacy" className="hover:text-foreground transition">Privacy Policy</Link>
+            <Link href="/terms" className="hover:text-foreground transition">Terms of Service</Link>
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-2">
+            © 2025 SubTrack AI · Outsmart your subscriptions
+          </p>
+        </div>
+      </footer>
+    </div>
+  );
+}
+
+function FeatureCard({ icon, title, description }: { icon: React.ReactNode; title: string; description: string }) {
+  return (
+    <div className="rounded-2xl border border-border bg-card p-4">
+      <div className="flex items-center gap-2 mb-1.5">
+        {icon}
+        <h3 className="text-sm font-semibold">{title}</h3>
+      </div>
+      <p className="text-xs text-muted-foreground leading-relaxed">{description}</p>
+    </div>
+  );
+}
+
+function Step({ num, title, description }: { num: number; title: string; description: string }) {
+  return (
+    <div className="flex items-start gap-3 rounded-2xl border border-border bg-card p-4">
+      <div className="h-7 w-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold shrink-0">
+        {num}
+      </div>
+      <div>
+        <h3 className="text-sm font-semibold mb-0.5">{title}</h3>
+        <p className="text-xs text-muted-foreground leading-relaxed">{description}</p>
+      </div>
+    </div>
   );
 }

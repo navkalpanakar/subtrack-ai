@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
   const origin = process.env.NEXTAUTH_URL || "http://localhost:3000";
   const session = await stripe.billingPortal.sessions.create({
     customer: user.stripeCustomerId,
-    return_url: `${origin}/`,
+    return_url: `${origin}/app`,
   });
 
   return NextResponse.json({ url: session.url });

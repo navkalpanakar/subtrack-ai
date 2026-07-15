@@ -28,15 +28,15 @@ function AuthBridgeContent() {
 
           if (bridgeData.token) {
             localStorage.setItem("subpilot_token", bridgeData.token);
-            // Redirect to home — the app will now recognize the token
-            window.location.href = "/";
+            // Redirect to the app — it will now recognize the token
+            window.location.href = "/app";
             return;
           }
         }
-        // No session or bridge failed — go back to login
-        window.location.href = "/";
+        // No session or bridge failed — go back to the app login
+        window.location.href = "/app";
       } catch {
-        window.location.href = "/";
+        window.location.href = "/app";
       }
     };
     run();

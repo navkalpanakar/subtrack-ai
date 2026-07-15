@@ -46,7 +46,7 @@ export function LoginScreen() {
     }
     setLoading("google");
     // Use redirect: false so we stay on the same page and can handle the result
-    const result = await signIn("google", { callbackUrl: "/", redirect: false });
+    const result = await signIn("google", { callbackUrl: "/app", redirect: false });
     if (result?.error) {
       toast.error("Google sign-in failed. Try again.");
       setLoading(null);
@@ -59,14 +59,14 @@ export function LoginScreen() {
         if (meData?.user) {
           // Store the user in localStorage so the auth hook picks it up
           localStorage.setItem("subpilot_user", JSON.stringify(meData.user));
-          window.location.href = "/";
+          window.location.href = "/app";
         } else {
           // Fallback: just reload the page — the NextAuth cookie should be set
-          window.location.href = "/";
+          window.location.href = "/app";
         }
       } catch {
         // Fallback: just reload
-        window.location.href = "/";
+        window.location.href = "/app";
       }
     }
   };

@@ -49,8 +49,8 @@ export async function POST(req: NextRequest) {
     customer: customerId,
     mode: "subscription",
     line_items: PREMIUM_PRICE_ID ? [{ price: PREMIUM_PRICE_ID, quantity: 1 }] : [],
-    success_url: `${origin}/?upgrade=success`,
-    cancel_url: `${origin}/?upgrade=cancelled`,
+    success_url: `${origin}/app?upgrade=success`,
+    cancel_url: `${origin}/app?upgrade=cancelled`,
     metadata: { userId: user.id },
   });
 
