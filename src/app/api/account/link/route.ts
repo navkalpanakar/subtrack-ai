@@ -21,8 +21,12 @@ export async function POST(req: NextRequest) {
 }
 
 // Unlink a provider from the current user.
-// For Google: removes the LinkedAccount row. The user will need to sign in
-// with Google again to re-enable Gmail inbox sync.
+//
+// For Google: removes the LinkedAccount row AND clears the NextAuth session
+// (signs the user out of Google). This is necessary because the /api/account/linked
+// endpoint checks for a REAL Google OAuth session — if we only deleted the DB row,
+// the active session would still report Google as "linked".
+//
 // For phone: removes the phone number + LinkedAccount row.
 export async function DELETE(req: NextRequest) {
   const userId = await getUserId(req);
@@ -54,5 +58,18 @@ export async function DELETE(req: NextRequest) {
     await db.user.update({ where: { id: userId }, data: { phone: null } });
   }
 
-  return NextResponse.json({ ok: true, provider, linked: false });
+  // For Google: we need to clear the NextAuth session so the /api/account/linked
+  // endpoint doesn't still see an active Google OAuth session. The frontend
+  // will handle the sign-out and reload.
+  const needsReauth = provider === "google";
+
+  return NextResponse.json({
+    ok: true,
+    provider,
+    linked: false,
+    needsReauth,
+    message: needsReauth
+      ? "Google unlinked. You'll be signed out — please sign in again with email to continue."
+      : undefined,
+  });
 }

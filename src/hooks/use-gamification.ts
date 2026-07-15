@@ -145,7 +145,10 @@ export function useUnlinkAccount() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (provider: string) =>
-      api(`/api/account/link?provider=${encodeURIComponent(provider)}`, { method: "DELETE" }),
+      api<{ ok: boolean; provider: string; linked: boolean; needsReauth?: boolean; message?: string }>(
+        `/api/account/link?provider=${encodeURIComponent(provider)}`,
+        { method: "DELETE" }
+      ),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["linked-accounts"] });
     },

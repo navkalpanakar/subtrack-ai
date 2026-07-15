@@ -568,12 +568,29 @@ export function ProfileView() {
             </div>
             {linked?.google ? (
               <button
-                onClick={() => {
-                  if (confirm("Unlink Google? You'll need to sign in with Google again to use Gmail inbox sync.")) {
-                    unlinkAccount.mutate("google", {
-                      onSuccess: () => toast.success("Google account unlinked"),
-                      onError: (e: Error) => toast.error(e.message),
-                    });
+                onClick={async () => {
+                  if (!confirm("Unlink Google? You'll be signed out and need to sign in again with email to continue.")) {
+                    return;
+                  }
+                  try {
+                    const res = await unlinkAccount.mutateAsync("google");
+                    if (res.needsReauth) {
+                      toast.success("Google account unlinked", {
+                        description: "Signing you out… please sign in again with email.",
+                      });
+                      // Sign out of NextAuth (clears the Google OAuth session)
+                      const { signOut } = await import("next-auth/react");
+                      await signOut({ redirect: false });
+                      // Clear local auth state
+                      localStorage.removeItem("subpilot_token");
+                      localStorage.removeItem("subpilot_user");
+                      // Reload to login screen after a brief delay
+                      setTimeout(() => window.location.reload(), 1500);
+                    } else {
+                      toast.success("Google account unlinked");
+                    }
+                  } catch (e) {
+                    toast.error((e as Error).message || "Failed to unlink Google");
                   }
                 }}
                 disabled={unlinkAccount.isPending}
