@@ -23,8 +23,10 @@ import {
 import {
   Sparkles, Camera, Mail, Send, Loader2, Check, MailCheck,
   Mic, MicOff, AlertCircle, ShieldCheck, RefreshCw, Lightbulb,
+  Link2, Link2Off,
 } from "lucide-react";
 import { toast } from "sonner";
+import { signIn } from "next-auth/react";
 import {
   useCreateSubscription,
   parseNaturalLanguage,
@@ -39,7 +41,7 @@ import {
 import { CATEGORIES, CYCLES, categoryColor } from "@/lib/format";
 import { currencySymbol, POPULAR_CURRENCIES } from "@/lib/currency";
 import { useCurrencyStore } from "@/hooks/use-currency-store";
-import { useLinkedAccounts, useLinkAccount } from "@/hooks/use-gamification";
+import { useLinkedAccounts, useLinkAccount, useUnlinkAccount } from "@/hooks/use-gamification";
 
 type Draft = {
   name: string;
@@ -87,19 +89,27 @@ export function QuickAddSheet({
   const create = useCreateSubscription();
   const { data: linkedAccounts } = useLinkedAccounts();
   const linkAccount = useLinkAccount();
+  const unlinkAccount = useUnlinkAccount();
   const { currency, setCurrency: setGlobalCurrency } = useCurrencyStore();
 
   // Gmail connection state — true only if the user has an active Google
   // OAuth session with a valid access token. Email/OTP users get false.
   const [gmailConnected, setGmailConnected] = useState<boolean | null>(null);
+  const [gmailEmail, setGmailEmail] = useState<string | null>(null);
+  const [unlinking, setUnlinking] = useState(false);
   useEffect(() => {
     if (!open || mode !== "email") return;
     let cancelled = false;
     checkGmailConnection()
-      .then((res) => { if (!cancelled) setGmailConnected(res.connected); })
+      .then((res) => {
+        if (!cancelled) {
+          setGmailConnected(res.connected);
+          setGmailEmail(res.email || null);
+        }
+      })
       .catch(() => { if (!cancelled) setGmailConnected(false); });
     return () => { cancelled = true; };
-  }, [open, mode]);
+  }, [open, mode, unlinking]);
 
   // AI natural language state
   const [nlText, setNlText] = useState("");
@@ -322,6 +332,41 @@ export function QuickAddSheet({
     } finally {
       setEmailParsing(false);
     }
+  };
+
+  // Unlink Google account — clears the OAuth session + reloads to login
+  const handleUnlinkGmail = async () => {
+    if (!confirm("Unlink Google? You'll be signed out and can sign in with a different Google account.")) {
+      return;
+    }
+    setUnlinking(true);
+    try {
+      const res = await unlinkAccount.mutateAsync("google");
+      if (res.needsReauth) {
+        toast.success("Google account unlinked", {
+          description: "Signing you out… sign in again to continue.",
+        });
+        const { signOut } = await import("next-auth/react");
+        await signOut({ redirect: false });
+        localStorage.removeItem("subpilot_token");
+        localStorage.removeItem("subpilot_user");
+        setTimeout(() => window.location.reload(), 1500);
+      } else {
+        toast.success("Google account unlinked");
+        setGmailConnected(false);
+        setGmailEmail(null);
+      }
+    } catch (e) {
+      toast.error((e as Error).message || "Failed to unlink Google");
+    } finally {
+      setUnlinking(false);
+    }
+  };
+
+  // Connect Google — redirects to Google OAuth
+  const handleConnectGmail = () => {
+    toast.info("Redirecting to Google sign-in…");
+    signIn("google", { callbackUrl: "/", redirect: true });
   };
 
   const handleInboxSync = async (provider: "gmail") => {
@@ -680,15 +725,73 @@ export function QuickAddSheet({
                   </div>
                 )}
 
-                {/* Provider one-tap buttons — Gmail only (Outlook/Apple removed) */}
-                <div className="grid grid-cols-1 gap-2">
-                  <InboxButton
-                    label="Gmail"
-                    color="#EA4335"
-                    connected={gmailConnected === true}
+                {/* Gmail card — scan button + link/unlink/switch controls */}
+                <div className={`rounded-xl border p-3 ${
+                  gmailConnected
+                    ? "border-primary/40 bg-primary/5"
+                    : "border-border bg-card"
+                }`}>
+                  <div className="flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-lg flex items-center justify-center text-white text-sm font-bold shrink-0" style={{ backgroundColor: "#EA4335" }}>
+                      G
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-xs font-medium">Gmail</p>
+                        {gmailConnected && (
+                          <span className="flex items-center gap-0.5 text-[9px] text-primary font-semibold">
+                            <Check className="h-2.5 w-2.5" /> Linked
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-muted-foreground truncate">
+                        {gmailConnected
+                          ? (gmailEmail || "Connected")
+                          : "Not connected"}
+                      </p>
+                    </div>
+                    {/* Link / Unlink / Switch button */}
+                    {gmailConnected ? (
+                      <button
+                        onClick={handleUnlinkGmail}
+                        disabled={unlinking || emailParsing}
+                        className="text-[10px] text-destructive font-semibold flex items-center gap-1 px-2 py-1.5 rounded-md hover:bg-destructive/10 transition shrink-0"
+                        title="Unlink Google account"
+                      >
+                        {unlinking ? <Loader2 className="h-3 w-3 animate-spin" /> : <Link2Off className="h-3 w-3" />}
+                        Unlink
+                      </button>
+                    ) : (
+                      <button
+                        onClick={handleConnectGmail}
+                        disabled={unlinking}
+                        className="text-[10px] text-primary font-semibold flex items-center gap-1 px-2 py-1.5 rounded-md hover:bg-primary/10 transition shrink-0"
+                        title="Connect Google account"
+                      >
+                        <Link2 className="h-3 w-3" />
+                        Connect
+                      </button>
+                    )}
+                  </div>
+                  {/* Scan button — only enabled if Gmail is connected */}
+                  <button
                     onClick={() => handleInboxSync("gmail")}
                     disabled={emailParsing || gmailConnected === false}
-                  />
+                    className="w-full mt-2.5 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-medium flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90 transition"
+                  >
+                    {emailParsing ? (
+                      <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Scanning inbox…</>
+                    ) : gmailConnected ? (
+                      <><RefreshCw className="h-3.5 w-3.5" /> Scan Gmail for subscriptions</>
+                    ) : (
+                      <><Mail className="h-3.5 w-3.5" /> Connect Gmail to scan</>
+                    )}
+                  </button>
+                  {gmailConnected && (
+                    <p className="text-[9px] text-muted-foreground text-center mt-1.5">
+                      To switch accounts: Unlink, then sign in with a different Google account
+                    </p>
+                  )}
                 </div>
                 {emailParsing && (
                   <p className="text-xs text-muted-foreground flex items-center gap-1.5">
