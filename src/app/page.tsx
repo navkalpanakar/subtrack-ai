@@ -73,6 +73,24 @@ export default function HomePage() {
           <div className="absolute -bottom-24 left-1/4 h-72 w-72 rounded-full bg-primary/20 blur-3xl" />
         </div>
 
+        {/* Top navigation bar with Privacy Policy link (prominent for Google verification) */}
+        <nav className="relative z-20 max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center text-white text-sm font-bold">
+              S
+            </div>
+            <span className="font-bold text-sm">SubTrack AI</span>
+          </div>
+          <div className="flex items-center gap-4 text-sm">
+            <Link href="/privacy" className="text-muted-foreground hover:text-foreground transition font-medium">
+              Privacy Policy
+            </Link>
+            <Link href="/terms" className="text-muted-foreground hover:text-foreground transition font-medium">
+              Terms
+            </Link>
+          </div>
+        </nav>
+
         <div className="relative z-10 max-w-2xl mx-auto px-6 py-12 text-center">
           <div className="mb-3 flex justify-center">
             <div className="h-20 w-20 rounded-2xl bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center text-white text-4xl font-bold shadow-lg">
@@ -97,10 +115,17 @@ export default function HomePage() {
             >
               Get Started <ArrowRight className="h-4 w-4 ml-2" />
             </Link>
+            <Link
+              href="/privacy"
+              className="inline-flex items-center justify-center h-12 px-6 rounded-xl border border-border bg-card text-foreground font-medium hover:bg-accent transition"
+            >
+              Privacy Policy
+            </Link>
           </div>
 
           <p className="text-[10px] text-muted-foreground mt-3">
-            Free to use · No credit card required
+            Free to use · No credit card required ·{" "}
+            <Link href="/privacy" className="underline hover:text-foreground">Privacy Policy</Link>
           </p>
         </div>
       </header>
