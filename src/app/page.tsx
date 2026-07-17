@@ -13,6 +13,11 @@ import {
 // - App purpose clearly explained
 // - No login wall
 
+// Force dynamic rendering — prevents Next.js from serving a cached version
+// to Google's crawler. Ensures Google always sees the latest content.
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export const metadata: Metadata = {
   title: "SubTrack AI — AI-Powered Subscription Tracker",
   description:
@@ -129,6 +134,23 @@ export default function HomePage() {
           </p>
         </div>
       </header>
+
+      {/* About section — explicitly states the app name and purpose for Google verification */}
+      <section className="max-w-2xl mx-auto px-6 py-8">
+        <h2 className="text-lg font-semibold text-center mb-4">About SubTrack AI</h2>
+        <p className="text-sm text-muted-foreground text-center leading-relaxed mb-3">
+          <strong className="text-foreground">SubTrack AI</strong> is an AI-powered subscription tracker
+          application that helps users monitor their recurring payments, detect subscriptions from their
+          Gmail inbox, receive AI-powered savings insights, and earn rewards. The app allows users to
+          track all their subscriptions in one dashboard, view monthly and yearly costs, get personalized
+          recommendations to save money, and cancel unused services.
+        </p>
+        <p className="text-sm text-muted-foreground text-center leading-relaxed">
+          SubTrack AI is a finance application that supports 40+ currencies with automatic location-based
+          detection. Users can sign in with email or Google, add subscriptions manually or via Gmail inbox
+          scanning, and participate in gamified challenges to earn rewards while saving money.
+        </p>
+      </section>
 
       {/* Features section */}
       <main className="max-w-2xl mx-auto px-6 pb-12">
